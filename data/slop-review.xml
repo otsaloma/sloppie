@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GtkSourceView style scheme for the diff view: stock Adwaita, except
+  for the diff line backgrounds, which are from ots-theme-light.el for
+  Emacs, so that a diff reads the same in both.
+-->
+<style-scheme id="slop-review" name="Slop Review" version="1.0" parent-scheme="Adwaita">
+
+  <author>Osmo Salomaa</author>
+  <description>Adwaita with Emacs diff colors</description>
+
+  <!-- Keywords and operators both map to def:statement. -->
+  <style name="def:statement" bold="true"/>
+
+  <style name="diff:added-line"   line-background="#d9ffd9"/>
+  <style name="diff:removed-line" line-background="#ffd9d9"/>
+
+</style-scheme>

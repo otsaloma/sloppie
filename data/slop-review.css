@@ -1,0 +1,55 @@
+/* -*- coding: utf-8-unix -*- */
+
+.slop-window {
+  font-family: "Berkeley Standard Mono", monospace;
+}
+
+.slop-file-sidebar listview {
+  background-color: transparent;
+}
+
+.slop-file-section {
+  font-weight: bold;
+  opacity: 0.6;
+  padding: 18px 12px 6px 12px;
+}
+
+.slop-file-row {
+  padding: 5px 6px;
+}
+
+.slop-file-status {
+  opacity: 0.6;
+}
+
+.slop-file-directory {
+  font-size: smaller;
+  opacity: 0.5;
+}
+
+.slop-file-added,
+.slop-file-removed {
+  font-size: smaller;
+}
+
+.slop-file-added {
+  color: @success_color;
+}
+
+.slop-file-removed {
+  color: @error_color;
+}
+
+.slop-file-zero {
+  color: inherit;
+  opacity: 0.35;
+}
+
+.slop-diff-view {
+  line-height: 1.4;
+  padding: 12px 0;
+}
+
+.slop-comment-sidebar {
+  padding: 18px;
+}

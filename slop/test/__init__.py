@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import atexit
+import shutil
 import subprocess
 import tempfile
 
@@ -23,6 +25,7 @@ from pathlib import Path
 def new_repository():
     """Create a scratch repository with a change of each kind."""
     root = Path(tempfile.mkdtemp(prefix="slop-review-"))
+    atexit.register(shutil.rmtree, root, ignore_errors=True)
     def git(*args):
         subprocess.run(["git", "-c", "user.email=test@test",
                         "-c", "user.name=Test", *args],

@@ -48,7 +48,6 @@ class Window(Gtk.ApplicationWindow):
         self.add_action(action)
 
     def _init_properties(self):
-        self.add_css_class("slop-window")
         self.set_default_size(1400, 900)
         self.set_title("Slop Review")
 

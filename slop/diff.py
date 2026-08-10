@@ -15,11 +15,35 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import difflib
+import re
 import slop
 
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import GtkSource
+from itertools import accumulate
+
+def find_spans(a, b):
+    """Return the character spans that differ between `a` and `b`."""
+    # Compare word by word rather than character by character, which
+    # would match stray letters shared by two unrelated words and
+    # leave the differences scattered over the whole line.
+    atokens = re.findall(r"\w+|\W", a)
+    btokens = re.findall(r"\w+|\W", b)
+    matcher = difflib.SequenceMatcher(None, atokens, btokens)
+    if matcher.ratio() < 0.5:
+        # Too little in common for the parts that match to mean anything.
+        return [], []
+    aends = list(accumulate(map(len, atokens), initial=0))
+    bends = list(accumulate(map(len, btokens), initial=0))
+    aspans, bspans = [], []
+    for op, i1, i2, j1, j2 in matcher.get_opcodes():
+        if op == "equal": continue
+        # Deletions are empty on one side and insertions on the other.
+        if i1 != i2: aspans.append((aends[i1], aends[i2]))
+        if j1 != j2: bspans.append((bends[j1], bends[j2]))
+    return aspans, bspans
 
 class LineNumberGutter(GtkSource.GutterRendererText):
 
@@ -80,12 +104,54 @@ class DiffView(GtkSource.View):
         # our style scheme tints them a whole line wide.
         manager = GtkSource.StyleSchemeManager.get_default()
         manager.append_search_path(str(slop.DATA_DIR))
-        buffer.set_style_scheme(manager.get_scheme("slop-review"))
+        scheme = manager.get_scheme("slop-review")
+        buffer.set_style_scheme(scheme)
+        # The word level tints are ours to apply, so they need tags. The
+        # scheme sets these as character backgrounds, which is a
+        # different property than the whole line paragraph background
+        # that the highlighting engine sets, so the two stack.
+        for kind in ("added", "removed"):
+            style = scheme.get_style(f"slop:refine-{kind}")
+            buffer.create_tag(f"refine-{kind}",
+                              background=style.get_property("background"))
+
+    def _refine(self, lines):
+        """Tint the words that differ between paired changed lines."""
+        i = 0
+        while i < len(lines):
+            if lines[i].kind != "removed":
+                i += 1
+                continue
+            # Pair a run of removed lines with the run of added lines
+            # right after it, but only when the two runs are of equal
+            # length, which is when the pairing is unambiguous.
+            j = i
+            while j < len(lines) and lines[j].kind == "removed": j += 1
+            k = j
+            while k < len(lines) and lines[k].kind == "added": k += 1
+            if j - i == k - j:
+                for old, new in zip(range(i, j), range(j, k)):
+                    # Skip the leading '-' and '+', which always differ.
+                    oldspans, newspans = find_spans(
+                        lines[old].text[1:], lines[new].text[1:])
+                    self._tag(old, oldspans, "refine-removed")
+                    self._tag(new, newspans, "refine-added")
+            i = k
+
+    def _tag(self, line, spans, name):
+        buffer = self.get_buffer()
+        for start, end in spans:
+            # The spans skipped the leading marker, the buffer has it.
+            buffer.apply_tag_by_name(
+                name,
+                buffer.get_iter_at_line_offset(line, start + 1)[1],
+                buffer.get_iter_at_line_offset(line, end + 1)[1])
 
     def set_diff(self, lines):
         """Show the parsed diff `lines`."""
         buffer = self.get_buffer()
         buffer.set_text("\n".join(x.text for x in lines))
+        self._refine(lines)
         for gutter in (self._old_gutter, self._new_gutter):
             gutter.set_lines(lines)
         buffer.place_cursor(buffer.get_start_iter())

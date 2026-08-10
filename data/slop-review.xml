@@ -12,7 +12,13 @@
   <!-- Keywords and operators both map to def:statement. -->
   <style name="def:statement" bold="true"/>
 
-  <style name="diff:added-line"   line-background="#d9ffd9"/>
-  <style name="diff:removed-line" line-background="#ffd9d9"/>
+  <style name="diff:added-line"   line-background="#d9fbe0"/>
+  <style name="diff:removed-line" line-background="#ffeae8"/>
+
+  <!-- Painted on top of the above, over the words that differ between
+       a removed line and the added line it was changed into. Not style
+       ids of any language, we look these up and apply them ourselves. -->
+  <style name="slop:refine-added"   background="#abedba"/>
+  <style name="slop:refine-removed" background="#ffcdca"/>
 
 </style-scheme>

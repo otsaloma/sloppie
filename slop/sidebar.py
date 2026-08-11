@@ -58,11 +58,17 @@ class FileSidebar(Gtk.Box):
         headers.connect("setup", self._on_header_setup)
         headers.connect("bind", self._on_header_bind)
         self._list_view.set_header_factory(headers)
-        scroller = Gtk.ScrolledWindow()
-        scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scroller.set_vexpand(True)
-        scroller.set_child(self._list_view)
-        self.append(scroller)
+        self._scroller = Gtk.ScrolledWindow()
+        self._scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self._scroller.set_vexpand(True)
+        self._scroller.set_child(self._list_view)
+        # The list starts out empty, hence the placeholder instead.
+        self._scroller.set_visible(False)
+        self.append(self._scroller)
+        self._placeholder = Gtk.Label(label="No changes")
+        self._placeholder.add_css_class("dim-label")
+        self._placeholder.set_vexpand(True)
+        self.append(self._placeholder)
 
     def _on_header_setup(self, factory, header):
         label = Gtk.Label()
@@ -132,6 +138,9 @@ class FileSidebar(Gtk.Box):
         for section in SECTIONS:
             self._stores[section].splice(
                 0, self._stores[section].get_n_items(), changes[section])
+        empty = not self._selection.get_model().get_n_items()
+        self._scroller.set_visible(not empty)
+        self._placeholder.set_visible(empty)
         self.select_change(selected)
 
     def select_change(self, change):

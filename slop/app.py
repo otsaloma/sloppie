@@ -41,7 +41,6 @@ class Application(Gtk.Application):
             raise SystemExit(1)
         window = slop.Window(repository)
         self.add_window(window)
-        self.set_accels_for_action("win.refresh", ["<Control>r"])
         window.present()
 
     def _parse_arguments(self, args):

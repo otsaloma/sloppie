@@ -19,7 +19,7 @@ import slop
 import sys
 
 from gi.repository import Gdk
-from gi.repository import Gio
+from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from slop.git import parse_diff
@@ -34,17 +34,12 @@ class Window(Gtk.ApplicationWindow):
         self._diff_view = slop.DiffView()
         self._file_sidebar = slop.FileSidebar()
         self._terminal = slop.Terminal(repository.root)
+        self._fingerprint = None
         self._init_properties()
         self._init_widgets()
         self._init_signal_handlers()
-        self._init_actions()
         self.load_css()
         self.refresh()
-
-    def _init_actions(self):
-        action = Gio.SimpleAction.new("refresh", None)
-        action.connect("activate", lambda *args: self.refresh())
-        self.add_action(action)
 
     def _init_properties(self):
         self.set_default_size(1400, 900)
@@ -52,15 +47,16 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_signal_handlers(self):
         self._file_sidebar.connect("change-selected", self._on_change_selected)
+        # Poll instead of watching the working tree, which would mean a
+        # watch on each of possibly very many directories. A poll costs
+        # one git command that skips ignored files, such as node_modules.
+        source = GLib.timeout_add_seconds(3, self._on_poll_timeout)
+        self.connect("destroy", lambda *args: GLib.source_remove(source))
 
     def _init_widgets(self):
         header = Gtk.HeaderBar()
         switcher = Gtk.StackSwitcher()
         header.set_title_widget(switcher)
-        refresh = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
-        refresh.set_tooltip_text("Reload changes from git (Ctrl+R)")
-        refresh.connect("clicked", lambda *args: self.refresh())
-        header.pack_start(refresh)
         self.set_titlebar(header)
         diff_scroller = Gtk.ScrolledWindow()
         diff_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -116,9 +112,22 @@ class Window(Gtk.ApplicationWindow):
             return self._diff_view.set_diff([])
         self._diff_view.set_diff(parse_diff(text))
 
+    def _on_poll_timeout(self):
+        try:
+            fingerprint = self.repository.get_fingerprint()
+        except RuntimeError as error:
+            print(f"slop-central: {error}", file=sys.stderr)
+            return GLib.SOURCE_CONTINUE
+        if fingerprint != self._fingerprint:
+            self.refresh()
+        return GLib.SOURCE_CONTINUE
+
     def refresh(self):
         """Reload the list of changed files from git."""
         try:
+            # Take the fingerprint first, so that a change made while
+            # we're reloading is caught by the next poll, not missed.
+            self._fingerprint = self.repository.get_fingerprint()
             changes = self.repository.list_changes()
         except RuntimeError as error:
             print(f"slop-central: {error}", file=sys.stderr)

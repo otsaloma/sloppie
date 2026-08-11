@@ -18,6 +18,7 @@
 import re
 import subprocess
 
+from contextlib import suppress
 from gi.repository import GObject
 from pathlib import Path
 
@@ -186,6 +187,24 @@ class Repository:
             "unstaged": self._list_diff_changes("unstaged"),
             "untracked": self._list_untracked_changes(),
         }
+
+    def get_fingerprint(self):
+        """Return a value that changes when anything in the repository does."""
+        # Cheap enough to poll: a single git command that skips ignored
+        # files. Status alone would miss edits that leave a file's status
+        # unchanged, so include modification times of the listed files.
+        output = self._git("status", "--porcelain", "-z", "--untracked-files=all")
+        fields = [x for x in output.split("\0") if x]
+        times = []
+        i = 0
+        while i < len(fields):
+            # Records are 'XY path\0', except for renames and copies,
+            # where the old path follows as one more field.
+            status, path = fields[i][:2], fields[i][3:]
+            i += 2 if status[0] in ("R", "C") else 1
+            with suppress(OSError):
+                times.append((self.root / path).stat().st_mtime_ns)
+        return output, times
 
     def get_diff(self, change):
         """Return the unified diff of `change` as text."""

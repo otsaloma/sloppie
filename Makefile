@@ -1,8 +1,8 @@
 # -*- coding: utf-8-unix -*-
 
 check:
-	flake8 bin/slop-review
-	flake8 bin/slop-review.in
+	flake8 bin/slop-central
+	flake8 bin/slop-central.in
 	flake8 conftest.py
 	flake8 slop
 

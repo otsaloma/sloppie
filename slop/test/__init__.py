@@ -24,7 +24,7 @@ from pathlib import Path
 
 def new_repository():
     """Create a scratch repository with a change of each kind."""
-    root = Path(tempfile.mkdtemp(prefix="slop-review-"))
+    root = Path(tempfile.mkdtemp(prefix="slop-central-"))
     atexit.register(shutil.rmtree, root, ignore_errors=True)
     def git(*args):
         subprocess.run(["git", "-c", "user.email=test@test",

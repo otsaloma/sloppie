@@ -27,7 +27,7 @@ class Application(Gtk.Application):
 
     def __init__(self, args):
         GObject.GObject.__init__(self)
-        self.set_application_id("io.otsaloma.slop-review")
+        self.set_application_id("io.otsaloma.slop-central")
         self.set_flags(Gio.ApplicationFlags.NON_UNIQUE)
         self.connect("activate", self._on_activate, args)
 
@@ -37,7 +37,7 @@ class Application(Gtk.Application):
             repository = slop.Repository(args.path)
         except Exception as error:
             # Nothing to show without a repository, so fail like git does.
-            print(f"slop-review: {error}", file=sys.stderr)
+            print(f"slop-central: {error}", file=sys.stderr)
             raise SystemExit(1)
         window = slop.Window(repository)
         self.add_window(window)
@@ -45,14 +45,14 @@ class Application(Gtk.Application):
         window.present()
 
     def _parse_arguments(self, args):
-        parser = ArgumentParser(usage="slop-review [OPTION...] [PATH]")
+        parser = ArgumentParser(usage="slop-central [OPTION...] [PATH]")
         parser.add_argument("path",
                             nargs="?",
                             default=".",
-                            help="path in the git repository to review")
+                            help="path in the git repository to central")
 
         parser.add_argument("--version",
                             action="version",
-                            version=f"slop-review {slop.__version__}")
+                            version=f"slop-central {slop.__version__}")
 
         return parser.parse_args(args)

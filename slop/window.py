@@ -22,7 +22,6 @@ from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GObject
 from gi.repository import Gtk
-from gi.repository import Pango
 from slop.git import parse_diff
 from slop.git import SECTION_TITLES
 
@@ -34,7 +33,7 @@ class Window(Gtk.ApplicationWindow):
         self._comment_sidebar = slop.CommentSidebar()
         self._diff_view = slop.DiffView()
         self._file_sidebar = slop.FileSidebar()
-        self._title_label = Gtk.Label()
+        self._terminal = slop.Terminal(repository.root)
         self._init_properties()
         self._init_widgets()
         self._init_signal_handlers()
@@ -56,9 +55,8 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_widgets(self):
         header = Gtk.HeaderBar()
-        self._title_label.add_css_class("title")
-        self._title_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
-        header.set_title_widget(self._title_label)
+        switcher = Gtk.StackSwitcher()
+        header.set_title_widget(switcher)
         refresh = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
         refresh.set_tooltip_text("Reload changes from git (Ctrl+R)")
         refresh.connect("clicked", lambda *args: self.refresh())
@@ -67,9 +65,17 @@ class Window(Gtk.ApplicationWindow):
         diff_scroller = Gtk.ScrolledWindow()
         diff_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         diff_scroller.set_child(self._diff_view)
-        # Files | diff | comments, with the diff getting the extra space.
+        terminal_scroller = Gtk.ScrolledWindow()
+        terminal_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        terminal_scroller.set_child(self._terminal)
+        stack = Gtk.Stack()
+        stack.add_titled(diff_scroller, "diff", "Diff")
+        stack.add_titled(terminal_scroller, "terminal", "Terminal")
+        switcher.set_stack(stack)
+        # Files | diff or terminal | comments, with the middle
+        # getting the extra space and the sidebars always visible.
         right = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        right.set_start_child(diff_scroller)
+        right.set_start_child(stack)
         right.set_resize_start_child(True)
         right.set_shrink_start_child(False)
         right.set_end_child(self._comment_sidebar)
@@ -98,11 +104,11 @@ class Window(Gtk.ApplicationWindow):
     def _on_change_selected(self, sidebar, change):
         self._comment_sidebar.set_change(change)
         if change is None:
-            self._title_label.set_text("Slop Review")
+            self.set_title("Slop Review")
             return self._diff_view.set_diff([])
         # The same file can be listed in two sections at once.
         section = SECTION_TITLES[change.section]
-        self._title_label.set_text(f"{change.path} — {section}")
+        self.set_title(f"{change.path} — {section}")
         try:
             text = self.repository.get_diff(change)
         except RuntimeError as error:

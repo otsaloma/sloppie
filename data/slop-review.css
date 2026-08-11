@@ -54,3 +54,7 @@
 .slop-comment-sidebar {
   padding: 18px;
 }
+
+vte-terminal {
+  padding: 6px 6px 3px 6px;
+}

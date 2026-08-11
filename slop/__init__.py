@@ -25,6 +25,7 @@ gi.require_version("GObject", "2.0")
 gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
 gi.require_version("Pango", "1.0")
+gi.require_version("Vte", "3.91")
 
 from pathlib import Path
 
@@ -37,6 +38,7 @@ from slop.git import Repository # noqa
 from slop.diff import DiffView # noqa
 from slop.sidebar import FileSidebar # noqa
 from slop.comments import CommentSidebar # noqa
+from slop.terminal import Terminal # noqa
 from slop.window import Window # noqa
 from slop.app import Application # noqa
 

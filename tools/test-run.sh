@@ -40,7 +40,7 @@ git add --all
 # Unstaged: a rename spread over a file, a deletion and a second rename
 # in a file that is already staged, which lands it in two sections at
 # once, with a different diff in each.
-sed -i 's/_title_label/_title/g' slop/window.py
+sed -i 's/_diff_view/_diff/g' slop/window.py
 sed -i 's/\bstats\b/numstat/g' slop/git.py
 rm Makefile
 

@@ -13,5 +13,5 @@
 - Click line number to add comment (popover for comment)
 - Persist comments on disk against revision
 - Render comments in the right sidebar
-- Push comments to coding agent or allow pull?
-- Mark comment as handled and collapse?
+- Push comments to coding agent
+- Mark comment as handled and collapse

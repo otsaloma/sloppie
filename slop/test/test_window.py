@@ -38,7 +38,7 @@ class TestWindow(slop.test.TestCase):
         for i in range(model.get_n_items()):
             sidebar._selection.set_selected(i)
             change = sidebar.get_selected_change()
-            assert self.window._title_label.get_text().startswith(change.path)
+            assert self.window.get_title().startswith(change.path)
 
     def test_selecting_nothing_clears_the_diff(self):
         self.window._file_sidebar._selection.unselect_all()

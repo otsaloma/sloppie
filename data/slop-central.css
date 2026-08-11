@@ -5,8 +5,8 @@
 }
 
 .slop-file-section {
+  color: @theme_selected_bg_color;
   font-weight: bold;
-  opacity: 0.6;
   padding: 18px 12px 6px 12px;
 }
 

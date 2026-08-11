@@ -1,6 +1,5 @@
 # TODO
 
-- Make the titles in the left sidebar stand out (color:@theme_selected_bg_color?)
 - Dim the prefix letters in the left sidebar
 - Remove +0 and -0 counts in the left sidebar
 - Add right-click menu in the left sidebar (stage, unstage, revert, edit)

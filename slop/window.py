@@ -70,6 +70,8 @@ class Window(Gtk.ApplicationWindow):
         switcher.set_stack(stack)
         # Files | diff or terminal | comments, with the middle
         # getting the extra space and the sidebars always visible.
+        # Both sidebars are 280 wide by default, the middle getting the
+        # rest of the default window width, minus the two paned handles.
         right = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         right.set_start_child(stack)
         right.set_resize_start_child(True)
@@ -77,7 +79,7 @@ class Window(Gtk.ApplicationWindow):
         right.set_end_child(self._comment_sidebar)
         right.set_resize_end_child(False)
         right.set_shrink_end_child(False)
-        right.set_position(880)
+        right.set_position(1400 - 280 - 280 - 2)
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         paned.set_start_child(self._file_sidebar)
         paned.set_resize_start_child(False)

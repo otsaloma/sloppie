@@ -9,6 +9,10 @@
   <author>Osmo Salomaa</author>
   <description>Adwaita with Emacs diff colors</description>
 
+  <!-- Adwaita dims its text to #504e55, we want the same black as the
+       rest of the window. -->
+  <style name="text" foreground="#323232"/>
+
   <!-- Keywords and operators both map to def:statement. -->
   <style name="def:statement" bold="true"/>
 

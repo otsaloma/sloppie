@@ -27,3 +27,40 @@ and `pytest ...` against all changed files. After making changes to
 GtkBuilder `.ui` files, run `gtk4-builder-tool validate ...`. After
 bigger changes, or if you suspect your changes affect other modules, use
 `make check` and `make test` to run the full validation and test suites.
+
+## Running the GUI
+
+You can run the GUI as `timeout --signal=TERM 5 bin/slop-central PATH`
+so it self-terminates (exit 124) instead of blocking; the console output
+is then captured for inspection. `PATH` is any path in a git repository;
+initialize a scratch repository if you need particular changes to look
+at, including an empty one for the placeholder states.
+
+To see all warnings, set `G_ENABLE_DIAGNOSTIC=1` (forces GTK to emit
+deprecation warnings) and read stderr (`2>&1`). GTK/GLib warnings go
+through the GLib log system, not Python `warnings`, so `pytest` needs
+`-s` to show them. Use `G_DEBUG=fatal-warnings` to turn a warning into a
+fatal error (with traceback) when tracking down its source.
+
+## Screenshots
+
+Screenshot tools that grab the screen, such as `grim` or `import`, are
+not available, but the window can render itself to PNG. Run a standalone
+script that creates `slop.Application([path])` and connects to
+"activate" — after the application's own handler, so that
+`app.get_windows()[0]` is there — then in a `GLib.timeout_add` callback
+(~1500 ms) render the window to PNG and quit the application:
+
+```python
+paintable = Gtk.WidgetPaintable(widget=window)
+snapshot = Gtk.Snapshot()
+paintable.snapshot(snapshot, paintable.get_intrinsic_width(), paintable.get_intrinsic_height())
+texture = window.get_native().get_renderer().render_texture(snapshot.to_node())
+texture.save_to_png(path)
+```
+
+This captures the window content, including the header bar, regardless
+of the Wayland compositor. Note that a standalone script doesn't get the
+`sys.path` manipulation that `bin/slop-central` does, so add the source
+repo to `sys.path` before importing `slop`. The same recipe works for
+measuring widget allocations, e.g. to check the size of a sidebar.

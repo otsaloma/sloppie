@@ -1,6 +1,5 @@
 # TODO
 
-- Refactor sloppie.css to have a monospace class
 - Make the left sidebar text baselines line up
 - Check custom theme syntax highlighting
 - Add --window-size command line parameter

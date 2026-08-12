@@ -1,5 +1,9 @@
 /* -*- coding: utf-8-unix -*- */
 
+.monospace {
+  font-family: "Berkeley Standard Mono", "SF Mono", monospace;
+}
+
 .slop-file-sidebar listview {
   background-color: transparent;
 }
@@ -15,7 +19,6 @@
 }
 
 .slop-file-status {
-  font-family: "Berkeley Standard Mono", "SF Mono", monospace;
   font-size: smaller;
   opacity: 0.5;
 }
@@ -26,7 +29,6 @@
 }
 
 .slop-file-added, .slop-file-removed {
-  font-family: "Berkeley Standard Mono", "SF Mono", monospace;
   font-size: smaller;
 }
 
@@ -44,7 +46,6 @@
 }
 
 .slop-diff-view {
-  font-family: "Berkeley Standard Mono", "SF Mono", monospace;
   line-height: 1.4;
   padding: 12px 0;
 }

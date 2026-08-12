@@ -89,6 +89,7 @@ class DiffView(GtkSource.View):
         gutter.insert(self._new_gutter, 1)
 
     def _init_properties(self):
+        self.add_css_class("monospace")
         self.add_css_class("slop-diff-view")
         self.set_editable(False)
         self.set_cursor_visible(False)

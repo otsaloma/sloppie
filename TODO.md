@@ -1,6 +1,5 @@
 # TODO
 
-- Remove +0 and -0 counts in the left sidebar
 - Add right-click menu in the left sidebar (stage, unstage, revert, edit)
 - Add keybindings for (stage, unstage, revert, edit) as Control+S etc.
 - Quit on Control+W or Control+Q

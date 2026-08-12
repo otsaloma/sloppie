@@ -123,13 +123,15 @@ class FileSidebar(Gtk.Box):
         name.set_text(change.name)
         name.set_tooltip_text(change.path)
         directory.set_text(change.directory)
-        # Binary files have no line counts to show.
-        added.set_text("" if change.added is None else f"+{change.added}")
-        removed.set_text("bin" if change.removed is None else f"−{change.removed}")
-        for label, count in ((added, change.added), (removed, change.removed)):
-            # Dim zeros, which would otherwise shout on nearly every row.
-            method = label.add_css_class if count == 0 else label.remove_css_class
-            method("slop-file-zero")
+        # Binary files have no line counts to show. Zeros are left out too,
+        # they'd only be noise on a row that has nothing added or removed.
+        added.set_text(f"+{change.added}" if change.added else "")
+        removed.set_text("bin" if change.removed is None else
+                         f"−{change.removed}" if change.removed else "")
+        for label in (added, removed):
+            # Hide rather than blank, so that the box spacing of an empty
+            # label doesn't look like trailing space on the row.
+            label.set_visible(bool(label.get_text()))
 
     def _on_selected_item_changed(self, *args, **kwargs):
         self.emit("change-selected", self._selection.get_selected_item())

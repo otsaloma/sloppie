@@ -42,7 +42,8 @@ class Window(Gtk.ApplicationWindow):
         self.refresh()
 
     def _init_properties(self):
-        self.set_default_size(1400, 900)
+        geometry = Gdk.Display.get_default().get_monitors()[0].get_geometry()
+        self.set_default_size(round(0.7 * geometry.width), round(0.8 * geometry.height))
         self.set_title("Sloppie")
 
     def _init_signal_handlers(self):
@@ -70,25 +71,33 @@ class Window(Gtk.ApplicationWindow):
         switcher.set_stack(stack)
         # Files | diff or terminal | comments, with the middle
         # getting the extra space and the sidebars always visible.
-        # Both sidebars are 280 wide by default, the middle getting the
-        # rest of the default window width, minus the two paned handles.
-        right = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        right.set_start_child(stack)
-        right.set_resize_start_child(True)
-        right.set_shrink_start_child(False)
-        right.set_end_child(self._comment_sidebar)
-        right.set_resize_end_child(False)
-        right.set_shrink_end_child(False)
-        right.set_position(1400 - 280 - 280 - 2)
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        paned.set_start_child(self._file_sidebar)
-        paned.set_resize_start_child(False)
-        paned.set_shrink_start_child(False)
-        paned.set_end_child(right)
-        paned.set_resize_end_child(True)
-        paned.set_shrink_end_child(False)
-        paned.set_position(280)
-        self.set_child(paned)
+        # Sidebar widths are set dynamically in do_size_allocate.
+        self._right_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self._right_paned.set_start_child(stack)
+        self._right_paned.set_resize_start_child(True)
+        self._right_paned.set_shrink_start_child(False)
+        self._right_paned.set_end_child(self._comment_sidebar)
+        self._right_paned.set_resize_end_child(False)
+        self._right_paned.set_shrink_end_child(False)
+        self._paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self._paned.set_start_child(self._file_sidebar)
+        self._paned.set_resize_start_child(False)
+        self._paned.set_shrink_start_child(False)
+        self._paned.set_end_child(self._right_paned)
+        self._paned.set_resize_end_child(True)
+        self._paned.set_shrink_end_child(False)
+        self.set_child(self._paned)
+
+    def do_size_allocate(self, width, height, baseline):
+        # Keep both sidebars at a sixth of the window width, the middle
+        # getting the rest, minus the two one pixel paned handles.
+        sidebar = round(width / 6)
+        self._paned.set_position(sidebar)
+        Gtk.ApplicationWindow.do_size_allocate(self, width, height, baseline)
+        # The right paned shifts its own position by the change in its
+        # width, so it can only be set once it has been allocated the
+        # width that follows from the left paned position set above.
+        self._right_paned.set_position(width - 2 * sidebar - 2)
 
     def load_css(self):
         css = (slop.DATA_DIR / "sloppie.css").read_text("utf-8")

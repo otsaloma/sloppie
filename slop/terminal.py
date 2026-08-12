@@ -77,4 +77,4 @@ class Terminal(Vte.Terminal):
     def _on_spawn_done(self, terminal, pid, error, *args):
         if error is None: return
         # Without a shell the terminal is a blank box, so say why.
-        print(f"slop-central: {error.message}", file=sys.stderr)
+        print(f"sloppie: {error.message}", file=sys.stderr)

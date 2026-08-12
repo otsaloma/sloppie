@@ -43,7 +43,7 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_properties(self):
         self.set_default_size(1400, 900)
-        self.set_title("Slop Central")
+        self.set_title("Sloppie")
 
     def _init_signal_handlers(self):
         self._file_sidebar.connect("change-selected", self._on_change_selected)
@@ -91,7 +91,7 @@ class Window(Gtk.ApplicationWindow):
         self.set_child(paned)
 
     def load_css(self):
-        css = (slop.DATA_DIR / "slop-central.css").read_text("utf-8")
+        css = (slop.DATA_DIR / "sloppie.css").read_text("utf-8")
         provider = Gtk.CssProvider()
         provider.load_from_string(css)
         Gtk.StyleContext.add_provider_for_display(
@@ -102,7 +102,7 @@ class Window(Gtk.ApplicationWindow):
     def _on_change_selected(self, sidebar, change):
         self._comment_sidebar.set_change(change)
         if change is None:
-            self.set_title("Slop Central")
+            self.set_title("Sloppie")
             return self._diff_view.set_diff([])
         # The same file can be listed in two sections at once.
         section = SECTION_TITLES[change.section]
@@ -110,7 +110,7 @@ class Window(Gtk.ApplicationWindow):
         try:
             text = self.repository.get_diff(change)
         except RuntimeError as error:
-            print(f"slop-central: {error}", file=sys.stderr)
+            print(f"sloppie: {error}", file=sys.stderr)
             return self._diff_view.set_diff([])
         self._diff_view.set_diff(parse_diff(text))
 
@@ -118,7 +118,7 @@ class Window(Gtk.ApplicationWindow):
         try:
             fingerprint = self.repository.get_fingerprint()
         except RuntimeError as error:
-            print(f"slop-central: {error}", file=sys.stderr)
+            print(f"sloppie: {error}", file=sys.stderr)
             return GLib.SOURCE_CONTINUE
         if fingerprint != self._fingerprint:
             self.refresh()
@@ -132,6 +132,6 @@ class Window(Gtk.ApplicationWindow):
             self._fingerprint = self.repository.get_fingerprint()
             changes = self.repository.list_changes()
         except RuntimeError as error:
-            print(f"slop-central: {error}", file=sys.stderr)
+            print(f"sloppie: {error}", file=sys.stderr)
             return
         self._file_sidebar.set_changes(changes)

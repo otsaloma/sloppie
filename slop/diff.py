@@ -104,7 +104,7 @@ class DiffView(GtkSource.View):
         # our style scheme tints them a whole line wide.
         manager = GtkSource.StyleSchemeManager.get_default()
         manager.append_search_path(str(slop.DATA_DIR))
-        scheme = manager.get_scheme("slop-central")
+        scheme = manager.get_scheme("sloppie")
         buffer.set_style_scheme(scheme)
         # The word level tints are ours to apply, so they need tags. The
         # scheme sets these as character backgrounds, which is a

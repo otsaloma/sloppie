@@ -2,13 +2,13 @@
 # -*- coding: utf-8-unix -*-
 
 # Clone this repository under /tmp, give the clone changes of every
-# kind we render and launch slop-central against it. The clone is thrown
+# kind we render and launch sloppie against it. The clone is thrown
 # away and made anew on each run, so it can be freely messed with.
 
 set -eu
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-TEST=/tmp/slop-central-test
+TEST=/tmp/sloppie-test
 
 rm -rf "$TEST"
 git clone --quiet "$ROOT" "$TEST"
@@ -63,4 +63,4 @@ class TestHunks(slop.test.TestCase):
 EOF
 
 echo "Reviewing $TEST"
-exec "$ROOT/bin/slop-central" "$TEST"
+exec "$ROOT/bin/sloppie" "$TEST"

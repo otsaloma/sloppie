@@ -30,7 +30,7 @@ bigger changes, or if you suspect your changes affect other modules, use
 
 ## Running the GUI
 
-You can run the GUI as `timeout --signal=TERM 5 bin/slop-central PATH`
+You can run the GUI as `timeout --signal=TERM 5 bin/sloppie PATH`
 so it self-terminates (exit 124) instead of blocking; the console output
 is then captured for inspection. `PATH` is any path in a git repository;
 initialize a scratch repository if you need particular changes to look
@@ -61,6 +61,6 @@ texture.save_to_png(path)
 
 This captures the window content, including the header bar, regardless
 of the Wayland compositor. Note that a standalone script doesn't get the
-`sys.path` manipulation that `bin/slop-central` does, so add the source
+`sys.path` manipulation that `bin/sloppie` does, so add the source
 repo to `sys.path` before importing `slop`. The same recipe works for
 measuring widget allocations, e.g. to check the size of a sidebar.

@@ -4,7 +4,7 @@
   for the diff line backgrounds, which are from ots-theme-light.el for
   Emacs, so that a diff reads the same in both.
 -->
-<style-scheme id="slop-central" name="Slop Central" version="1.0" parent-scheme="Adwaita">
+<style-scheme id="sloppie" name="Sloppie" version="1.0" parent-scheme="Adwaita">
 
   <author>Osmo Salomaa</author>
   <description>Adwaita with Emacs diff colors</description>

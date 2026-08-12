@@ -106,6 +106,8 @@ class FileSidebar(Gtk.Box):
         removed.add_css_class("monospace")
         removed.add_css_class("slop-file-removed")
         for child in (status, name, directory, added, removed):
+            # Line up the baselines of the smaller labels with the name.
+            child.set_valign(Gtk.Align.BASELINE_CENTER)
             box.append(child)
         item.set_child(box)
 

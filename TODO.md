@@ -1,6 +1,5 @@
 # TODO
 
-- Make the left sidebar text baselines line up
 - Check custom theme syntax highlighting
 - Add --window-size command line parameter
 - Remove +0 and -0 counts in the left sidebar

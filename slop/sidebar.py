@@ -79,7 +79,7 @@ class FileSidebar(Gtk.Box):
     def _on_header_bind(self, factory, header):
         change = header.get_item()
         title = SECTION_TITLES[change.section]
-        header.get_child().set_text(f"{title} ({header.get_n_items()})")
+        header.get_child().set_text(title)
 
     def _on_item_setup(self, factory, item):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)

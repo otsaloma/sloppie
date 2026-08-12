@@ -44,11 +44,11 @@ class Application(Gtk.Application):
         window.present()
 
     def _parse_arguments(self, args):
-        parser = ArgumentParser(usage="sloppie [OPTION...] [PATH]")
+        parser = ArgumentParser(usage="sloppie [OPTION...] PATH")
         parser.add_argument("path",
                             nargs="?",
                             default=".",
-                            help="path in the git repository")
+                            help="path of the git repository")
 
         parser.add_argument("--version",
                             action="version",

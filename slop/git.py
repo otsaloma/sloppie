@@ -101,8 +101,7 @@ def parse_diff(text):
 class Repository:
 
     def __init__(self, path="."):
-        self.root = Path(self._git(
-            "rev-parse", "--show-toplevel", cwd=path).strip())
+        self.root = Path(self._git("rev-parse", "--show-toplevel", cwd=path).strip())
 
     def _git(self, *args, cwd=None, ok_codes=(0,)):
         # Suppress external diff drivers and color, which would both

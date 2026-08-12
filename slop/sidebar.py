@@ -21,8 +21,8 @@ from gi.repository import Gio
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
-from slop.git import SECTIONS
 from slop.git import SECTION_TITLES
+from slop.git import SECTIONS
 
 class FileSidebar(Gtk.Box):
 

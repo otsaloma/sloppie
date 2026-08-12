@@ -11,13 +11,13 @@
 }
 
 .slop-file-row {
-  padding: 5px 6px;
+  padding: 6px;
 }
 
-/* Monospace to keep the letters of adjacent rows lined up. */
 .slop-file-status {
-  font-family: "Berkeley Standard Mono", monospace;
-  opacity: 0.6;
+  font-family: "Berkeley Standard Mono", "SF Mono", monospace;
+  font-size: smaller;
+  opacity: 0.5;
 }
 
 .slop-file-directory {
@@ -25,10 +25,8 @@
   opacity: 0.5;
 }
 
-/* Monospace to keep the counts of adjacent rows lined up. */
-.slop-file-added,
-.slop-file-removed {
-  font-family: "Berkeley Standard Mono", monospace;
+.slop-file-added, .slop-file-removed {
+  font-family: "Berkeley Standard Mono", "SF Mono", monospace;
   font-size: smaller;
 }
 
@@ -42,11 +40,11 @@
 
 .slop-file-zero {
   color: inherit;
-  opacity: 0.35;
+  opacity: 0.5;
 }
 
 .slop-diff-view {
-  font-family: "Berkeley Standard Mono", monospace;
+  font-family: "Berkeley Standard Mono", "SF Mono", monospace;
   line-height: 1.4;
   padding: 12px 0;
 }

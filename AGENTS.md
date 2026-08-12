@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Scope
+
+Sloppie is intended to be used only by me. That means we can tailor it
+to my preferences, including hard-code things like fonts in code. We
+don't need config files, preferences dialogs, user interface
+translations, none of that. We're targeting only Linux + GNOME + Wayland
+— it's the same system you're running on. Design-wise we want to follow
+GNOME/Adwaita look and feel (but not use the Adwaita library).
+
 ## GTK Documentation
 
 Documentation for GTK and associated libraries is available as GIR files
@@ -30,9 +39,9 @@ bigger changes, or if you suspect your changes affect other modules, use
 
 ## Running the GUI
 
-You can run the GUI as `timeout --signal=TERM 5 bin/sloppie PATH`
-so it self-terminates (exit 124) instead of blocking; the console output
-is then captured for inspection. `PATH` is any path in a git repository;
+You can run the GUI as `timeout --signal=TERM 5 bin/sloppie PATH` so it
+self-terminates (exit 124) instead of blocking; the console output is
+then captured for inspection. `PATH` is any path in a git repository;
 initialize a scratch repository if you need particular changes to look
 at, including an empty one for the placeholder states.
 
@@ -61,6 +70,6 @@ texture.save_to_png(path)
 
 This captures the window content, including the header bar, regardless
 of the Wayland compositor. Note that a standalone script doesn't get the
-`sys.path` manipulation that `bin/sloppie` does, so add the source
-repo to `sys.path` before importing `slop`. The same recipe works for
+`sys.path` manipulation that `bin/sloppie` does, so add the source repo
+to `sys.path` before importing `slop`. The same recipe works for
 measuring widget allocations, e.g. to check the size of a sidebar.

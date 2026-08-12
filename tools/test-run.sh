@@ -62,5 +62,5 @@ class TestHunks(slop.test.TestCase):
         assert slop.group_hunks([]) == []
 EOF
 
-echo "Reviewing $TEST"
+echo "Launching against $TEST"
 exec "$ROOT/bin/sloppie" "$TEST"

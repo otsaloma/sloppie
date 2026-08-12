@@ -32,15 +32,15 @@ from pathlib import Path
 # Default to the source directory, overwritten when installing.
 DATA_DIR = Path(__file__).parent.parent.joinpath("data").resolve()
 
-from slop.git import DiffLine # noqa
-from slop.git import FileChange # noqa
-from slop.git import Repository # noqa
-from slop.diff import DiffView # noqa
-from slop.sidebar import FileSidebar # noqa
-from slop.comments import CommentSidebar # noqa
-from slop.terminal import Terminal # noqa
-from slop.window import Window # noqa
-from slop.app import Application # noqa
+from slop.git import DiffLine
+from slop.git import FileChange
+from slop.git import Repository
+from slop.diff import DiffView
+from slop.sidebar import FileSidebar
+from slop.comments import CommentSidebar
+from slop.terminal import Terminal
+from slop.window import Window
+from slop.app import Application
 
 def main(args):
     global app

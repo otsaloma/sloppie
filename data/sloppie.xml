@@ -1,28 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  GtkSourceView style scheme for the diff view: stock Adwaita, except
-  for the diff line backgrounds, which are from ots-theme-light.el for
-  Emacs, so that a diff reads the same in both.
--->
 <style-scheme id="sloppie" name="Sloppie" version="1.0" parent-scheme="Adwaita">
-
   <author>Osmo Salomaa</author>
-  <description>Adwaita with Emacs diff colors</description>
-
-  <!-- Adwaita dims its text to #504e55, we want the same black as the
-       rest of the window. -->
+  <description>Sloppie style</description>
   <style name="text" foreground="#323232"/>
-
-  <!-- Keywords and operators both map to def:statement. -->
+  <!-- Syntax highlighting -->
   <style name="def:statement" bold="true"/>
-
+  <!-- Diff lines -->
   <style name="diff:added-line"   line-background="#d9fbe0"/>
   <style name="diff:removed-line" line-background="#ffeae8"/>
-
-  <!-- Painted on top of the above, over the words that differ between
-       a removed line and the added line it was changed into. Not style
-       ids of any language, we look these up and apply them ourselves. -->
+  <!-- Diff words -->
   <style name="slop:refine-added"   background="#abedba"/>
   <style name="slop:refine-removed" background="#ffcdca"/>
-
 </style-scheme>

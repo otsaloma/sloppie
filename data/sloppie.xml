@@ -3,8 +3,6 @@
   <author>Osmo Salomaa</author>
   <description>Sloppie style</description>
   <style name="text" foreground="#323232"/>
-  <!-- Syntax highlighting -->
-  <style name="def:statement" bold="true"/>
   <!-- Diff lines -->
   <style name="diff:added-line"   line-background="#d9fbe0"/>
   <style name="diff:removed-line" line-background="#ffeae8"/>

@@ -25,7 +25,6 @@ from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from slop.git import parse_diff
-from slop.git import SECTION_TITLES
 from slop.git import SECTIONS
 
 class Window(Gtk.ApplicationWindow):
@@ -192,11 +191,7 @@ class Window(Gtk.ApplicationWindow):
         self.lookup_action("trash").set_enabled(section == "untracked")
         self.lookup_action("edit").set_enabled(section is not None)
         if change is None:
-            self.set_title("Sloppie")
             return self._diff_view.set_diff([])
-        # The same file can be listed in two sections at once.
-        section = SECTION_TITLES[change.section]
-        self.set_title(f"{change.path} — {section}")
         try:
             text = self.repository.get_diff(change)
         except RuntimeError as error:

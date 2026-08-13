@@ -35,10 +35,10 @@ class TestWindow(slop.test.TestCase):
     def test_selecting_shows_a_diff(self):
         sidebar = self.window._file_sidebar
         model = sidebar._selection.get_model()
+        buffer = self.window._diff_view.get_buffer()
         for i in range(model.get_n_items()):
             sidebar._selection.set_selected(i)
-            change = sidebar.get_selected_change()
-            assert self.window.get_title().startswith(change.path)
+            assert buffer.get_text(*buffer.get_bounds(), False)
 
     def test_selecting_nothing_clears_the_diff(self):
         self.window._file_sidebar._selection.unselect_all()

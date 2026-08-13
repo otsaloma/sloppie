@@ -25,7 +25,6 @@ from pathlib import Path
 
 # Sections in the order they are shown in the sidebar.
 SECTIONS = ["staged", "unstaged", "untracked"]
-SECTION_TITLES = {"staged": "Staged", "unstaged": "Unstaged", "untracked": "Untracked"}
 
 class DiffLine:
 

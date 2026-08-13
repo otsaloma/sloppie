@@ -36,6 +36,7 @@ class Window(Gtk.ApplicationWindow):
         self._diff_view = slop.DiffView()
         self._file_sidebar = slop.FileSidebar()
         self._terminal = slop.Terminal(repository.root)
+        self._toast = slop.Toast()
         self._fingerprint = None
         self._init_properties()
         self._init_actions()
@@ -121,7 +122,10 @@ class Window(Gtk.ApplicationWindow):
         self._paned.set_end_child(self._right_paned)
         self._paned.set_resize_end_child(True)
         self._paned.set_shrink_end_child(False)
-        self.set_child(self._paned)
+        overlay = Gtk.Overlay()
+        overlay.set_child(self._paned)
+        overlay.add_overlay(self._toast)
+        self.set_child(overlay)
 
     def do_size_allocate(self, width, height, baseline):
         # Keep both sidebars at a sixth of the window width, the middle
@@ -167,18 +171,18 @@ class Window(Gtk.ApplicationWindow):
         self._diff_view.set_diff(parse_diff(text))
 
     def _apply(self, operation, change):
-        """Run `operation` on `change` and reload."""
+        """Run `operation` on `change`, reload and return ``True`` if done."""
+        success = True
         try:
             operation(change)
         except (GLib.Error, RuntimeError) as error:
             print(f"sloppie: {error}", file=sys.stderr)
+            success = False
         self.refresh()
+        return success
 
-    def _confirm(self, operation, change, message, detail, label):
-        """Ask for confirmation and run `operation` on `change`."""
-        def on_done(dialog, result, change):
-            if dialog.choose_finish(result) == 1:
-                self._apply(operation, change)
+    def _confirm(self, message, detail, label):
+        """Return ``True`` if the user chooses `label`."""
         dialog = Gtk.AlertDialog(modal=True,
                                  message=message,
                                  detail=detail,
@@ -186,7 +190,18 @@ class Window(Gtk.ApplicationWindow):
                                  cancel_button=0,
                                  default_button=0)
 
-        dialog.choose(self, None, on_done, change)
+        # AlertDialog only has an asynchronous API, so run a nested main
+        # loop to be able to return the response to the caller. Having
+        # cancel_button set, dismissing gives us that instead of an error.
+        loop = GLib.MainLoop()
+        response = 0
+        def on_done(dialog, result):
+            nonlocal response
+            response = dialog.choose_finish(result)
+            loop.quit()
+        dialog.choose(self, None, on_done)
+        loop.run()
+        return response == 1
 
     def _on_stage_activate(self, *args):
         self._apply(self.repository.stage,
@@ -198,17 +213,19 @@ class Window(Gtk.ApplicationWindow):
 
     def _on_revert_activate(self, *args):
         change = self._file_sidebar.get_selected_change()
-        self._confirm(self.repository.revert, change,
-                      f"Revert changes in {change.name}?",
-                      "The changes will be permanently lost.",
-                      "Revert")
+        if self._confirm(f"Revert changes in {change.name}?",
+                         "The changes will be permanently lost.",
+                         "Revert"):
+            if self._apply(self.repository.revert, change):
+                self._toast.flash(f"Reverted file {change.name}")
 
     def _on_trash_activate(self, *args):
         change = self._file_sidebar.get_selected_change()
-        self._confirm(self.repository.trash, change,
-                      f"Move {change.name} to the trash?",
-                      "The file can be restored from the trash.",
-                      "Trash")
+        if self._confirm(f"Move {change.name} to the trash?",
+                         "The file can be restored from the trash.",
+                         "Trash"):
+            if self._apply(self.repository.trash, change):
+                self._toast.flash(f"Trashed file {change.name}")
 
     def _on_edit_activate(self, *args):
         change = self._file_sidebar.get_selected_change()

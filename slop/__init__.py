@@ -40,6 +40,7 @@ from slop.diff import DiffView
 from slop.sidebar import FileSidebar
 from slop.comments import CommentSidebar
 from slop.terminal import Terminal
+from slop.toast import Toast
 from slop.window import Window
 from slop.app import Application
 

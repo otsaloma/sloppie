@@ -49,6 +49,14 @@
   padding: 18px;
 }
 
+.slop-toast {
+  background-color: @theme_fg_color;
+  border-radius: 99px;
+  color: @theme_bg_color;
+  margin: 12px;
+  padding: 4px 4px 4px 18px;
+}
+
 vte-terminal {
   padding: 6px 6px 3px 6px;
 }

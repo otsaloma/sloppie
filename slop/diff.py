@@ -95,7 +95,7 @@ class DiffView(GtkSource.View):
         self.set_cursor_visible(False)
         self.set_show_line_numbers(False)
         self.set_highlight_current_line(False)
-        self.set_wrap_mode(Gtk.WrapMode.NONE)
+        self.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         buffer = self.get_buffer()
         language = GtkSource.LanguageManager.get_default().get_language("diff")
         buffer.set_language(language)

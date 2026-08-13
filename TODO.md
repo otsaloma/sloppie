@@ -1,6 +1,5 @@
 # TODO
 
-- Toggle line-wrap
 - Add toast
 - Quit on Control+W or Control+Q
 - Move focus to first staged file with Alt+S, ustaged with Alt+U etc.

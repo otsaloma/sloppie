@@ -63,6 +63,13 @@ class Window(Gtk.ApplicationWindow):
                 trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
                 action=Gtk.NamedAction.new(f"win.{name}")))
         self.add_controller(shortcuts)
+        # This is the toggle in the header bar menu, which starts out
+        # in whatever state the diff view was created in.
+        wrap = self._diff_view.get_wrap_mode() != Gtk.WrapMode.NONE
+        action = Gio.SimpleAction.new_stateful(
+            "wrap-lines", None, GLib.Variant.new_boolean(wrap))
+        action.connect("change-state", self._on_wrap_lines_change_state)
+        self.add_action(action)
 
     def _init_properties(self):
         geometry = Gdk.Display.get_default().get_monitors()[0].get_geometry()
@@ -81,6 +88,11 @@ class Window(Gtk.ApplicationWindow):
         header = Gtk.HeaderBar()
         switcher = Gtk.StackSwitcher()
         header.set_title_widget(switcher)
+        menu = Gio.Menu()
+        menu.append("Wrap Lines", "win.wrap-lines")
+        header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic",
+                                       menu_model=menu,
+                                       primary=True))
         self.set_titlebar(header)
         diff_scroller = Gtk.ScrolledWindow()
         diff_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -207,6 +219,12 @@ class Window(Gtk.ApplicationWindow):
             subprocess.Popen(["emacs", str(path)], start_new_session=True)
         except OSError as error:
             print(f"sloppie: {error}", file=sys.stderr)
+
+    def _on_wrap_lines_change_state(self, action, state):
+        action.set_state(state)
+        self._diff_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR
+                                      if state.get_boolean() else
+                                      Gtk.WrapMode.NONE)
 
     def _on_poll_timeout(self):
         try:

@@ -54,6 +54,12 @@ class Terminal(Vte.Terminal):
     def _init_properties(self):
         self.set_hexpand(True)
         self.set_vexpand(True)
+        # Leave scrolling to the scrolled window around us and give it
+        # pixels to work with, as Ptyxis does. VTE's own scrolling takes
+        # a touchpad's pixel-sized deltas for lines and multiplies them
+        # by a tenth of the terminal height, which sends a nudge flying.
+        self.set_enable_fallback_scrolling(False)
+        self.set_scroll_unit_is_pixels(True)
         self.set_font(Pango.FontDescription.from_string(
             "Berkeley Standard Mono Medium 10"))
 

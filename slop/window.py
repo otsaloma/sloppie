@@ -79,6 +79,9 @@ class Window(Gtk.ApplicationWindow):
             "wrap-lines", None, GLib.Variant.new_boolean(wrap))
         action.connect("change-state", self._on_wrap_lines_change_state)
         self.add_action(action)
+        action = Gio.SimpleAction(name="about")
+        action.connect("activate", self._on_about_activate)
+        self.add_action(action)
 
     def _init_focus_shortcuts(self):
         # Alt accelerators that only move focus, matching the mnemonics
@@ -121,6 +124,9 @@ class Window(Gtk.ApplicationWindow):
         header.set_title_widget(switcher)
         menu = Gio.Menu()
         menu.append("Wrap Lines", "win.wrap-lines")
+        section = Gio.Menu()
+        section.append("About Sloppie", "win.about")
+        menu.append_section(None, section)
         header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic",
                                        menu_model=menu,
                                        primary=True))
@@ -288,6 +294,9 @@ class Window(Gtk.ApplicationWindow):
         self._diff_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR
                                       if state.get_boolean() else
                                       Gtk.WrapMode.NONE)
+
+    def _on_about_activate(self, *args):
+        slop.AboutDialog(self).present()
 
     def _on_poll_timeout(self):
         try:

@@ -63,6 +63,12 @@ class Window(Gtk.ApplicationWindow):
             shortcuts.add_shortcut(Gtk.Shortcut(
                 trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
                 action=Gtk.NamedAction.new(f"win.{name}")))
+        # Closing the only window quits the application, so both of the
+        # customary accelerators can just close the window.
+        for accelerator in ("<Control>w", "<Control>q"):
+            shortcuts.add_shortcut(Gtk.Shortcut(
+                trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
+                action=Gtk.NamedAction.new("window.close")))
         self.add_controller(shortcuts)
         # This is the toggle in the header bar menu, which starts out
         # in whatever state the diff view was created in.

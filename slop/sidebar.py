@@ -17,8 +17,10 @@
 
 import slop
 
+from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GObject
+from gi.repository import Graphene
 from gi.repository import Gtk
 from gi.repository import Pango
 from slop.git import SECTION_TITLES
@@ -69,6 +71,24 @@ class FileSidebar(Gtk.Box):
         self._placeholder.add_css_class("dim-label")
         self._placeholder.set_vexpand(True)
         self.append(self._placeholder)
+        # The actions are those of the window, found by way of the popover
+        # being parented to a widget in the window's widget hierarchy.
+        model = Gio.Menu()
+        model.append("Stage", "win.stage")
+        model.append("Unstage", "win.unstage")
+        model.append("Revert", "win.revert")
+        model.append("Trash", "win.trash")
+        model.append("Edit", "win.edit")
+        self._menu = Gtk.PopoverMenu(menu_model=model, has_arrow=False)
+        self._menu.set_parent(self)
+
+    def do_dispose(self):
+        # A popover is parented, not a child, so it has to be
+        # unparented by hand, lest GTK complain on finalization.
+        if self._menu is not None:
+            self._menu.unparent()
+            self._menu = None
+        Gtk.Box.do_dispose(self)
 
     def _on_header_setup(self, factory, header):
         label = Gtk.Label()
@@ -109,6 +129,9 @@ class FileSidebar(Gtk.Box):
             # Line up the baselines of the smaller labels with the name.
             child.set_valign(Gtk.Align.BASELINE_CENTER)
             box.append(child)
+        gesture = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
+        gesture.connect("pressed", self._on_item_right_click, item)
+        box.add_controller(gesture)
         item.set_child(box)
 
     def _on_item_bind(self, factory, item):
@@ -132,6 +155,20 @@ class FileSidebar(Gtk.Box):
             # Hide rather than blank, so that the box spacing of an empty
             # label doesn't look like trailing space on the row.
             label.set_visible(bool(label.get_text()))
+
+    def _on_item_right_click(self, gesture, n_press, x, y, item):
+        # Act on the file clicked, not the one selected before. Rows are
+        # recycled, so the item's position is only known now.
+        self._selection.set_selected(item.get_position())
+        found, point = item.get_child().compute_point(
+            self, Graphene.Point().init(x, y))
+        if not found: return
+        rectangle = Gdk.Rectangle()
+        rectangle.x = round(point.x)
+        rectangle.y = round(point.y)
+        rectangle.width = rectangle.height = 1
+        self._menu.set_pointing_to(rectangle)
+        self._menu.popup()
 
     def _on_selected_item_changed(self, *args, **kwargs):
         self.emit("change-selected", self._selection.get_selected_item())

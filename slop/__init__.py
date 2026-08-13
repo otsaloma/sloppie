@@ -22,6 +22,7 @@ import gi
 gi.require_version("Gdk", "4.0")
 gi.require_version("Gio", "2.0")
 gi.require_version("GObject", "2.0")
+gi.require_version("Graphene", "1.0")
 gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
 gi.require_version("Pango", "1.0")

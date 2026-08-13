@@ -127,6 +127,32 @@ class TestRepository(slop.test.TestCase):
         assert staged != unstaged
         assert "No newline at end of file" in unstaged
 
+    def test_stage(self):
+        self.repository.stage(self.get_change("unstaged", "modified.txt"))
+        assert not self.repository.list_changes()["unstaged"]
+
+    def test_stage_untracked(self):
+        self.repository.stage(self.get_change("untracked", "untracked.txt"))
+        changes = self.repository.list_changes()
+        assert not changes["untracked"]
+        assert "untracked.txt" in [x.path for x in changes["staged"]]
+
+    def test_unstage(self):
+        self.repository.unstage(self.get_change("staged", "modified.txt"))
+        assert "modified.txt" not in [
+            x.path for x in self.repository.list_changes()["staged"]]
+
+    def test_unstage_rename(self):
+        # Both halves of the rename need to leave the index.
+        self.repository.unstage(self.get_change("staged", "renamed-to.txt"))
+        changes = self.repository.list_changes()
+        assert "renamed-to.txt" not in [x.path for x in changes["staged"]]
+        assert "renamed-to.txt" in [x.path for x in changes["untracked"]]
+
+    def test_revert(self):
+        self.repository.revert(self.get_change("unstaged", "modified.txt"))
+        assert not self.repository.list_changes()["unstaged"]
+
     def test_not_a_repository(self):
         try:
             slop.Repository("/")

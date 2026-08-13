@@ -19,6 +19,7 @@ import re
 import subprocess
 
 from contextlib import suppress
+from gi.repository import Gio
 from gi.repository import GObject
 from pathlib import Path
 
@@ -160,6 +161,11 @@ class Repository:
         # External diff drivers would render the output unparseable.
         return self._git("diff", "--no-ext-diff", *args, **kwargs)
 
+    def _paths(self, change):
+        # Renames and copies concern both of their paths. Given the new
+        # path alone, git would treat the change as a new file.
+        return [change.old_path, change.path] if change.old_path else [change.path]
+
     def _list_diff_changes(self, section, *args):
         stats = self._parse_numstat(self._diff(*args, "--numstat", "-z"))
         statuses = self._parse_name_status(self._diff(*args, "--name-status", "-z"))
@@ -213,7 +219,24 @@ class Repository:
             return self._diff("--no-index", "--", "/dev/null", change.path,
                               ok_codes=(0, 1))
         args = ["--cached"] if change.section == "staged" else []
-        # Renames and copies are only detected as such when git is given
-        # both paths; with the new path alone it looks like a new file.
-        paths = [change.old_path, change.path] if change.old_path else [change.path]
-        return self._diff(*args, "--", *paths)
+        return self._diff(*args, "--", *self._paths(change))
+
+    def stage(self, change):
+        """Add the changes in `change` to the index."""
+        self._git("add", "--", *self._paths(change))
+
+    def unstage(self, change):
+        """Remove the changes in `change` from the index."""
+        # 'git restore --staged' would be the modern equivalent, but it
+        # needs a HEAD and thus fails before the first commit is made.
+        self._git("reset", "--quiet", "--", *self._paths(change))
+
+    def revert(self, change):
+        """Discard the working tree changes in `change`."""
+        self._git("restore", "--", *self._paths(change))
+
+    def trash(self, change):
+        """Move the file of `change` to the trash."""
+        # Note that trashing is not supported on all file systems,
+        # /tmp and the like being system internal mounts to GLib.
+        Gio.File.new_for_path(str(self.root / change.path)).trash(None)

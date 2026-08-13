@@ -16,9 +16,11 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import slop
+import subprocess
 import sys
 
 from gi.repository import Gdk
+from gi.repository import Gio
 from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
@@ -36,10 +38,31 @@ class Window(Gtk.ApplicationWindow):
         self._terminal = slop.Terminal(repository.root)
         self._fingerprint = None
         self._init_properties()
+        self._init_actions()
         self._init_widgets()
         self._init_signal_handlers()
         self.load_css()
         self.refresh()
+
+    def _init_actions(self):
+        # These are the actions of the file sidebar's context menu, which
+        # shows the accelerators added to the shortcut controller below.
+        # They start out disabled, being no-ops without a file selected.
+        shortcuts = Gtk.ShortcutController(scope=Gtk.ShortcutScope.GLOBAL)
+        for name, accelerator, callback in (
+                ("stage", "<Control>s", self._on_stage_activate),
+                ("unstage", "<Control>u", self._on_unstage_activate),
+                ("revert", None, self._on_revert_activate),
+                ("trash", None, self._on_trash_activate),
+                ("edit", "<Control>e", self._on_edit_activate)):
+            action = Gio.SimpleAction(name=name, enabled=False)
+            action.connect("activate", callback)
+            self.add_action(action)
+            if accelerator is None: continue
+            shortcuts.add_shortcut(Gtk.Shortcut(
+                trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
+                action=Gtk.NamedAction.new(f"win.{name}")))
+        self.add_controller(shortcuts)
 
     def _init_properties(self):
         geometry = Gdk.Display.get_default().get_monitors()[0].get_geometry()
@@ -110,6 +133,14 @@ class Window(Gtk.ApplicationWindow):
 
     def _on_change_selected(self, sidebar, change):
         self._comment_sidebar.set_change(change)
+        # Allow only the operations that apply to the file selected.
+        # Staged changes are reverted by unstaging them first.
+        section = change.section if change is not None else None
+        self.lookup_action("stage").set_enabled(section in ("unstaged", "untracked"))
+        self.lookup_action("unstage").set_enabled(section == "staged")
+        self.lookup_action("revert").set_enabled(section == "unstaged")
+        self.lookup_action("trash").set_enabled(section == "untracked")
+        self.lookup_action("edit").set_enabled(section is not None)
         if change is None:
             self.set_title("Sloppie")
             return self._diff_view.set_diff([])
@@ -122,6 +153,60 @@ class Window(Gtk.ApplicationWindow):
             print(f"sloppie: {error}", file=sys.stderr)
             return self._diff_view.set_diff([])
         self._diff_view.set_diff(parse_diff(text))
+
+    def _apply(self, operation, change):
+        """Run `operation` on `change` and reload."""
+        try:
+            operation(change)
+        except (GLib.Error, RuntimeError) as error:
+            print(f"sloppie: {error}", file=sys.stderr)
+        self.refresh()
+
+    def _confirm(self, operation, change, message, detail, label):
+        """Ask for confirmation and run `operation` on `change`."""
+        def on_done(dialog, result, change):
+            if dialog.choose_finish(result) == 1:
+                self._apply(operation, change)
+        dialog = Gtk.AlertDialog(modal=True,
+                                 message=message,
+                                 detail=detail,
+                                 buttons=["Cancel", label],
+                                 cancel_button=0,
+                                 default_button=0)
+
+        dialog.choose(self, None, on_done, change)
+
+    def _on_stage_activate(self, *args):
+        self._apply(self.repository.stage,
+                    self._file_sidebar.get_selected_change())
+
+    def _on_unstage_activate(self, *args):
+        self._apply(self.repository.unstage,
+                    self._file_sidebar.get_selected_change())
+
+    def _on_revert_activate(self, *args):
+        change = self._file_sidebar.get_selected_change()
+        self._confirm(self.repository.revert, change,
+                      f"Revert changes in {change.name}?",
+                      "The changes will be permanently lost.",
+                      "Revert")
+
+    def _on_trash_activate(self, *args):
+        change = self._file_sidebar.get_selected_change()
+        self._confirm(self.repository.trash, change,
+                      f"Move {change.name} to the trash?",
+                      "The file can be restored from the trash.",
+                      "Trash")
+
+    def _on_edit_activate(self, *args):
+        change = self._file_sidebar.get_selected_change()
+        path = self.repository.root / change.path
+        try:
+            # Give emacs a session of its own, so that it neither dies
+            # along with sloppie nor takes signals meant for sloppie.
+            subprocess.Popen(["emacs", str(path)], start_new_session=True)
+        except OSError as error:
+            print(f"sloppie: {error}", file=sys.stderr)
 
     def _on_poll_timeout(self):
         try:

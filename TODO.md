@@ -1,7 +1,7 @@
 # TODO
 
-- Add right-click menu in the left sidebar (stage, unstage, revert, edit)
-- Add keybindings for (stage, unstage, revert, edit) as Control+S etc.
+- Toggle line-wrap
+- Add toast
 - Quit on Control+W or Control+Q
 - Move focus to first staged file with Alt+S, ustaged with Alt+U etc.
 - Make a commit with Control+Enter? (dialog for message)

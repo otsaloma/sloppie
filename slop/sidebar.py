@@ -23,7 +23,6 @@ from gi.repository import GObject
 from gi.repository import Graphene
 from gi.repository import Gtk
 from gi.repository import Pango
-from slop.git import SECTION_TITLES
 from slop.git import SECTIONS
 
 class FileSidebar(Gtk.Box):
@@ -98,8 +97,12 @@ class FileSidebar(Gtk.Box):
 
     def _on_header_bind(self, factory, header):
         change = header.get_item()
-        title = SECTION_TITLES[change.section]
-        header.get_child().set_text(title)
+        # The mnemonics only show the underline when Alt is held, the
+        # focus shortcuts of the window do the actual moving of focus.
+        title = {"staged": "_Staged",
+                 "unstaged": "_Unstaged",
+                 "untracked": "U_ntracked"}[change.section]
+        header.get_child().set_text_with_mnemonic(title)
 
     def _on_item_setup(self, factory, item):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -172,6 +175,18 @@ class FileSidebar(Gtk.Box):
 
     def _on_selected_item_changed(self, *args, **kwargs):
         self.emit("change-selected", self._selection.get_selected_item())
+
+    def focus_section(self, section):
+        """Move focus to the first file of `section`, if any."""
+        if not self._stores[section].get_n_items(): return
+        position = sum(self._stores[x].get_n_items()
+                       for x in SECTIONS[:SECTIONS.index(section)])
+        # scroll_to only grabs focus if the list has focus already.
+        self._list_view.grab_focus()
+        self._list_view.scroll_to(position,
+                                  Gtk.ListScrollFlags.FOCUS |
+                                  Gtk.ListScrollFlags.SELECT,
+                                  None)
 
     def get_selected_change(self):
         return self._selection.get_selected_item()

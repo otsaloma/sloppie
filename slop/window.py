@@ -26,6 +26,7 @@ from gi.repository import GObject
 from gi.repository import Gtk
 from slop.git import parse_diff
 from slop.git import SECTION_TITLES
+from slop.git import SECTIONS
 
 class Window(Gtk.ApplicationWindow):
 
@@ -41,6 +42,7 @@ class Window(Gtk.ApplicationWindow):
         self._init_properties()
         self._init_actions()
         self._init_widgets()
+        self._init_focus_shortcuts()
         self._init_signal_handlers()
         self.load_css()
         self.refresh()
@@ -78,6 +80,28 @@ class Window(Gtk.ApplicationWindow):
         action.connect("change-state", self._on_wrap_lines_change_state)
         self.add_action(action)
 
+    def _init_focus_shortcuts(self):
+        # Alt accelerators that only move focus, matching the mnemonics
+        # underlined in the sidebar section titles and the stack
+        # switcher when Alt is held. They run in the capture phase, so
+        # that they beat both those mnemonics, which would move focus
+        # elsewhere, and the terminal, which would eat them.
+        action = Gio.SimpleAction(name="focus", parameter_type=GLib.VariantType("s"))
+        action.connect("activate", self._on_focus_activate)
+        self.add_action(action)
+        shortcuts = Gtk.ShortcutController(
+            propagation_phase=Gtk.PropagationPhase.CAPTURE)
+        for target, accelerator in (("staged", "<Alt>s"),
+                                    ("unstaged", "<Alt>u"),
+                                    ("untracked", "<Alt>n"),
+                                    ("diff", "<Alt>d"),
+                                    ("terminal", "<Alt>t")):
+            shortcuts.add_shortcut(Gtk.Shortcut(
+                trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
+                action=Gtk.NamedAction.new("win.focus"),
+                arguments=GLib.Variant("s", target)))
+        self.add_controller(shortcuts)
+
     def _init_properties(self):
         geometry = Gdk.Display.get_default().get_monitors()[0].get_geometry()
         self.set_default_size(round(0.7 * geometry.width), round(0.8 * geometry.height))
@@ -107,15 +131,19 @@ class Window(Gtk.ApplicationWindow):
         terminal_scroller = Gtk.ScrolledWindow()
         terminal_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         terminal_scroller.set_child(self._terminal)
-        stack = Gtk.Stack()
-        stack.add_titled(diff_scroller, "diff", "Diff")
-        stack.add_titled(terminal_scroller, "terminal", "Terminal")
-        switcher.set_stack(stack)
+        self._stack = Gtk.Stack()
+        # The mnemonics only show the underline when Alt is held, the
+        # focus shortcuts of the window do the actual moving of focus.
+        for child, name, title in ((diff_scroller, "diff", "_Diff"),
+                                   (terminal_scroller, "terminal", "_Terminal")):
+            page = self._stack.add_titled(child, name, title)
+            page.set_use_underline(True)
+        switcher.set_stack(self._stack)
         # Files | diff or terminal | comments, with the middle
         # getting the extra space and the sidebars always visible.
         # Sidebar widths are set dynamically in do_size_allocate.
         self._right_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self._right_paned.set_start_child(stack)
+        self._right_paned.set_start_child(self._stack)
         self._right_paned.set_resize_start_child(True)
         self._right_paned.set_shrink_start_child(False)
         self._right_paned.set_end_child(self._comment_sidebar)
@@ -242,6 +270,15 @@ class Window(Gtk.ApplicationWindow):
             subprocess.Popen(["emacs", str(path)], start_new_session=True)
         except OSError as error:
             print(f"sloppie: {error}", file=sys.stderr)
+
+    def _on_focus_activate(self, action, target):
+        target = target.get_string()
+        if target in SECTIONS:
+            return self._file_sidebar.focus_section(target)
+        self._stack.set_visible_child_name(target)
+        # Focus the view itself, not the scroller around it.
+        widget = self._diff_view if target == "diff" else self._terminal
+        widget.grab_focus()
 
     def _on_wrap_lines_change_state(self, action, state):
         action.set_state(state)

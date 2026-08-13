@@ -148,11 +148,21 @@ class DiffView(GtkSource.View):
                 buffer.get_iter_at_line_offset(line, start + 1)[1],
                 buffer.get_iter_at_line_offset(line, end + 1)[1])
 
-    def set_diff(self, lines):
-        """Show the parsed diff `lines`."""
+    def set_diff(self, lines, keep_position=False):
+        """Show the parsed diff `lines`, `keep_position` to not scroll to the top."""
         buffer = self.get_buffer()
-        buffer.set_text("\n".join(x.text for x in lines))
+        text = "\n".join(x.text for x in lines)
+        if keep_position and text == buffer.get_text(*buffer.get_bounds(), True):
+            # Nothing to redo, and redoing it would only lose the position.
+            return
+        top = (self.get_line_at_y(self.get_visible_rect().y)[0].get_line()
+               if keep_position else 0)
+        buffer.set_text(text)
         self._refine(lines)
         for gutter in (self._old_gutter, self._new_gutter):
             gutter.set_lines(lines)
-        buffer.place_cursor(buffer.get_start_iter())
+        buffer.place_cursor(buffer.get_iter_at_line(
+            min(top, buffer.get_line_count() - 1))[1])
+        # Line heights are only computed once idle, so scrolling by iter
+        # would be off. Scrolling to a mark defers until they are known.
+        self.scroll_to_mark(buffer.get_insert(), 0, True, 0, 0)

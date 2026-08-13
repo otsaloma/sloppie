@@ -47,7 +47,8 @@ class FileSidebar(Gtk.Box):
         self._selection.set_can_unselect(True)
         self._list_view = Gtk.ListView(model=self._selection)
         self._init_widgets()
-        self._selection.connect("notify::selected-item", self._on_selected_item_changed)
+        self._selection_handler = self._selection.connect(
+            "notify::selected-item", self._on_selected_item_changed)
 
     def _init_widgets(self):
         self.add_css_class("slop-file-sidebar")
@@ -194,13 +195,19 @@ class FileSidebar(Gtk.Box):
     def set_changes(self, changes):
         """Show `changes`, keeping the selected file selected if still there."""
         selected = self.get_selected_change()
-        for section in SECTIONS:
-            self._stores[section].splice(
-                0, self._stores[section].get_n_items(), changes[section])
-        empty = not self._selection.get_model().get_n_items()
-        self._scroller.set_visible(not empty)
-        self._placeholder.set_visible(empty)
-        self.select_change(selected)
+        # Splicing drops the selection before it can be restored below.
+        # Block the handler for the duration, so that this shows to the
+        # outside as one selection change, not a deselection and then a
+        # reselection, which would reload the diff view twice.
+        with GObject.signal_handler_block(self._selection, self._selection_handler):
+            for section in SECTIONS:
+                self._stores[section].splice(
+                    0, self._stores[section].get_n_items(), changes[section])
+            empty = not self._selection.get_model().get_n_items()
+            self._scroller.set_visible(not empty)
+            self._placeholder.set_visible(empty)
+            self.select_change(selected)
+        self._on_selected_item_changed()
 
     def select_change(self, change):
         """Select the item matching `change`, or the first item."""

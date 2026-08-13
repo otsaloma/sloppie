@@ -38,6 +38,7 @@ class Window(Gtk.ApplicationWindow):
         self._terminal = slop.Terminal(repository.root)
         self._toast = slop.Toast()
         self._fingerprint = None
+        self._shown_change = None
         self._init_properties()
         self._init_actions()
         self._init_widgets()
@@ -190,6 +191,13 @@ class Window(Gtk.ApplicationWindow):
         self.lookup_action("revert").set_enabled(section == "unstaged")
         self.lookup_action("trash").set_enabled(section == "untracked")
         self.lookup_action("edit").set_enabled(section is not None)
+        # A refresh reselects the file selected, which lands here just
+        # like the user picking a file. Only the latter should send the
+        # diff view back to the top, the former should stay put.
+        previous, self._shown_change = self._shown_change, change
+        same = (change is not None and previous is not None and
+                change.section == previous.section and
+                change.path == previous.path)
         if change is None:
             return self._diff_view.set_diff([])
         try:
@@ -197,7 +205,7 @@ class Window(Gtk.ApplicationWindow):
         except RuntimeError as error:
             print(f"sloppie: {error}", file=sys.stderr)
             return self._diff_view.set_diff([])
-        self._diff_view.set_diff(parse_diff(text))
+        self._diff_view.set_diff(parse_diff(text), keep_position=same)
 
     def _apply(self, operation, change):
         """Run `operation` on `change`, reload and return ``True`` if done."""

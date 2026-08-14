@@ -112,6 +112,10 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_signal_handlers(self):
         self._file_sidebar.connect("change-selected", self._on_change_selected)
+        # Clicking the stack switcher only switches the stack and leaves
+        # focus on the switcher button, so focus the view shown here.
+        self._stack.connect("notify::visible-child",
+                            lambda *args: self._focus_stack_view())
         # Poll instead of watching the working tree, which would mean a
         # watch on each of possibly very many directories. A poll costs
         # one git command that skips ignored files, such as node_modules.
@@ -284,9 +288,16 @@ class Window(Gtk.ApplicationWindow):
         target = target.get_string()
         if target in SECTIONS:
             return self._file_sidebar.focus_section(target)
+        # Set the visible child even if unchanged, in which case no
+        # notification follows and focus needs to be moved here.
         self._stack.set_visible_child_name(target)
+        self._focus_stack_view()
+
+    def _focus_stack_view(self):
         # Focus the view itself, not the scroller around it.
-        widget = self._diff_view if target == "diff" else self._terminal
+        widget = (self._diff_view
+                  if self._stack.get_visible_child_name() == "diff" else
+                  self._terminal)
         widget.grab_focus()
 
     def _on_wrap_lines_change_state(self, action, state):

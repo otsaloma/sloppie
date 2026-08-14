@@ -49,6 +49,16 @@
   padding: 12px 0;
 }
 
+.slop-commit-view {
+  line-height: 1.4;
+}
+
+/* The style scheme gives the text an opaque background, which is drawn
+   over the layer that the right margin line is drawn in, hiding it. */
+.slop-commit-view text {
+  background-color: transparent;
+}
+
 .slop-comment-sidebar {
   padding: 18px;
 }

@@ -69,6 +69,15 @@ class Window(Gtk.ApplicationWindow):
             shortcuts.add_shortcut(Gtk.Shortcut(
                 trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
                 action=Gtk.NamedAction.new(f"win.{name}")))
+        # Committing is always possible, since an amend can be done even
+        # without staged changes. Ctrl+Enter needs the capture phase too,
+        # the terminal otherwise passing it on to the shell as a plain Enter.
+        action = Gio.SimpleAction(name="commit")
+        action.connect("activate", self._on_commit_activate)
+        self.add_action(action)
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control>Return"),
+            action=Gtk.NamedAction.new("win.commit")))
         # Closing the only window quits the application, so both of the
         # customary accelerators can just close the window.
         for accelerator in ("<Control>w", "<Control>q"):
@@ -129,8 +138,9 @@ class Window(Gtk.ApplicationWindow):
     def _init_widgets(self):
         header = Gtk.HeaderBar()
         # The icon theme has no commit icon, a save icon being the
-        # closest thing. Not yet hooked up to anything.
-        commit = Gtk.Button(icon_name="document-save-symbolic",
+        # closest thing.
+        commit = Gtk.Button(action_name="win.commit",
+                            icon_name="document-save-symbolic",
                             tooltip_text="Commit")
         header.pack_start(commit)
         # The repository and the branch at the left end, styled like a
@@ -319,6 +329,15 @@ class Window(Gtk.ApplicationWindow):
             subprocess.Popen(["emacs", str(path)], start_new_session=True)
         except OSError as error:
             print(f"sloppie: {error}", file=sys.stderr)
+
+    def _on_commit_activate(self, *args):
+        dialog = slop.CommitDialog(self, self.repository)
+        dialog.connect("committed", self._on_committed)
+        dialog.present()
+
+    def _on_committed(self, dialog):
+        self._toast.flash("Committed changes")
+        self.refresh()
 
     def _on_focus_activate(self, action, target):
         target = target.get_string()

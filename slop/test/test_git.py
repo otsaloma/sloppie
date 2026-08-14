@@ -153,6 +153,33 @@ class TestRepository(slop.test.TestCase):
         self.repository.revert(self.get_change("unstaged", "modified.txt"))
         assert not self.repository.list_changes()["unstaged"]
 
+    def test_has_staged_changes(self):
+        assert self.repository.has_staged_changes()
+        self.repository.commit("Add a thing")
+        assert not self.repository.has_staged_changes()
+
+    def test_commit(self):
+        self.repository.commit("Add a thing")
+        assert not self.repository.list_changes()["staged"]
+        assert self.repository.get_last_message() == "Add a thing"
+
+    def test_commit_amend(self):
+        self.repository.commit("Add a thing")
+        self.repository.commit("Add a thing, amended", amend=True)
+        assert self.repository.get_last_message() == "Add a thing, amended"
+        # Amending rewrites the commit rather than adding one.
+        assert self.repository._git("rev-list", "--count", "HEAD").strip() == "2"
+
+    def test_commit_nothing_staged(self):
+        self.repository.commit("Add a thing")
+        try:
+            self.repository.commit("Add a thing again")
+        except RuntimeError as error:
+            # Explained by git on stdout, stderr being empty.
+            assert "no changes added to commit" in str(error)
+            return
+        raise AssertionError("expected RuntimeError")
+
     def test_not_a_repository(self):
         try:
             slop.Repository("/")

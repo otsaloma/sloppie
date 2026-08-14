@@ -115,7 +115,10 @@ class Repository:
                                  stderr=subprocess.PIPE)
 
         if process.returncode not in ok_codes:
-            error = process.stderr.decode("utf-8", errors="replace").strip()
+            # Some commands, such as commit, explain the failure on
+            # stdout, leaving stderr empty.
+            error = (process.stderr.decode("utf-8", errors="replace").strip() or
+                     process.stdout.decode("utf-8", errors="replace").strip())
             raise RuntimeError(f"{' '.join(command)}: {error}")
         return process.stdout.decode("utf-8", errors="replace")
 
@@ -198,6 +201,15 @@ class Repository:
         branch = self._git("branch", "--show-current").strip()
         return branch or self._git("rev-parse", "--short", "HEAD").strip()
 
+    def has_staged_changes(self):
+        """Return ``True`` if there is anything staged to commit."""
+        # Works before the first commit too, unlike anything against HEAD.
+        return bool(self._diff("--cached", "--name-only").strip())
+
+    def get_last_message(self):
+        """Return the message of the previous commit."""
+        return self._git("log", "-1", "--format=%B").strip()
+
     def get_fingerprint(self):
         """Return a value that changes when anything in the repository does."""
         # Cheap enough to poll: a single git command that skips ignored
@@ -248,3 +260,10 @@ class Repository:
         # Note that trashing is not supported on all file systems,
         # /tmp and the like being system internal mounts to GLib.
         Gio.File.new_for_path(str(self.root / change.path)).trash(None)
+
+    def commit(self, message, amend=False):
+        """Commit the staged changes with `message`."""
+        # Amending rewrites the previous commit, which is also the way
+        # to only edit its message, with nothing staged.
+        args = ["--amend"] if amend else []
+        self._git("commit", "--quiet", *args, "--message", message)

@@ -27,14 +27,17 @@ def new_repository():
     root = Path(tempfile.mkdtemp(prefix="sloppie-"))
     atexit.register(shutil.rmtree, root, ignore_errors=True)
     def git(*args):
-        subprocess.run(["git", "-c", "user.email=test@test",
-                        "-c", "user.name=Test", *args],
+        subprocess.run(["git", *args],
                        cwd=str(root),
                        check=True,
                        stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL)
 
     git("init", "-q")
+    # Give the repository an identity of its own, so that commits made
+    # here and by the code under test work without a global git config.
+    git("config", "user.email", "test@test")
+    git("config", "user.name", "Test")
     (root / "modified.txt").write_text("a\nb\nc\n", "utf-8")
     (root / "renamed-from.txt").write_text("keep\n", "utf-8")
     (root / "binary.bin").write_bytes(b"bin\x00\x01data\n")

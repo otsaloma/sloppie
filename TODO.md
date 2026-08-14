@@ -1,6 +1,5 @@
 # TODO
 
-- Make a commit with Control+Enter? (dialog for message)
 - Click line number to add comment (popover for comment)
 - Persist comments on disk against revision
 - Render comments in the right sidebar
@@ -10,5 +9,6 @@
 - Add build + install to Makefile (see gaupol)
 - Add release to Makefile (see gaupol)
 - Write README.md
+- Add alert dialogs for any failing git operations
 - Use simple syntax highlighting in the diff view
 - Add viewing past commits

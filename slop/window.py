@@ -114,8 +114,8 @@ class Window(Gtk.ApplicationWindow):
         self._file_sidebar.connect("change-selected", self._on_change_selected)
         # Clicking the stack switcher only switches the stack and leaves
         # focus on the switcher button, so focus the view shown here.
-        self._stack.connect("notify::visible-child",
-                            lambda *args: self._focus_stack_view())
+        self._stack_handler = self._stack.connect(
+            "notify::visible-child", lambda *args: self._focus_stack_view())
         # Poll instead of watching the working tree, which would mean a
         # watch on each of possibly very many directories. A poll costs
         # one git command that skips ignored files, such as node_modules.
@@ -191,8 +191,13 @@ class Window(Gtk.ApplicationWindow):
             provider,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-    def _on_change_selected(self, sidebar, change):
+    def _on_change_selected(self, sidebar, change, by_user):
         self._comment_sidebar.set_change(change)
+        # The sidebar and the diff view belong together, so picking a
+        # file should show its diff, even if the terminal was shown.
+        # A reload reselecting a file should not steal the terminal.
+        if by_user and change is not None:
+            self._show_diff_view()
         # Allow only the operations that apply to the file selected.
         # Staged changes are reverted by unstaging them first.
         section = change.section if change is not None else None
@@ -287,11 +292,21 @@ class Window(Gtk.ApplicationWindow):
     def _on_focus_activate(self, action, target):
         target = target.get_string()
         if target in SECTIONS:
-            return self._file_sidebar.focus_section(target)
+            # Show the diff of the file focused, also when it was the
+            # one selected already and no selection change follows.
+            if self._file_sidebar.focus_section(target):
+                self._show_diff_view()
+            return
         # Set the visible child even if unchanged, in which case no
         # notification follows and focus needs to be moved here.
         self._stack.set_visible_child_name(target)
         self._focus_stack_view()
+
+    def _show_diff_view(self):
+        # Focus belongs to the sidebar here, so block the handler that
+        # would move it along to the view shown.
+        with GObject.signal_handler_block(self._stack, self._stack_handler):
+            self._stack.set_visible_child_name("diff")
 
     def _focus_stack_view(self):
         # Focus the view itself, not the scroller around it.

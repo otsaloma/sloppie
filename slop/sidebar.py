@@ -29,8 +29,11 @@ class FileSidebar(Gtk.Box):
 
     """List of changed files, grouped into staged, unstaged and untracked."""
 
+    # The boolean argument of "change-selected" tells whether the user
+    # picked the file, as opposed to a reload having reselected it.
     __gsignals__ = {
-        "change-selected": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
+        "change-selected": (GObject.SignalFlags.RUN_LAST, None,
+                            (GObject.TYPE_PYOBJECT, GObject.TYPE_BOOLEAN)),
     }
 
     def __init__(self):
@@ -175,11 +178,11 @@ class FileSidebar(Gtk.Box):
         self._menu.popup()
 
     def _on_selected_item_changed(self, *args, **kwargs):
-        self.emit("change-selected", self._selection.get_selected_item())
+        self.emit("change-selected", self._selection.get_selected_item(), True)
 
     def focus_section(self, section):
-        """Move focus to the first file of `section`, if any."""
-        if not self._stores[section].get_n_items(): return
+        """Move focus to the first file of `section`, return ``True`` if done."""
+        if not self._stores[section].get_n_items(): return False
         position = sum(self._stores[x].get_n_items()
                        for x in SECTIONS[:SECTIONS.index(section)])
         # scroll_to only grabs focus if the list has focus already.
@@ -188,6 +191,7 @@ class FileSidebar(Gtk.Box):
                                   Gtk.ListScrollFlags.FOCUS |
                                   Gtk.ListScrollFlags.SELECT,
                                   None)
+        return True
 
     def get_selected_change(self):
         return self._selection.get_selected_item()
@@ -207,7 +211,7 @@ class FileSidebar(Gtk.Box):
             self._scroller.set_visible(not empty)
             self._placeholder.set_visible(empty)
             self.select_change(selected)
-        self._on_selected_item_changed()
+        self.emit("change-selected", self.get_selected_change(), False)
 
     def select_change(self, change):
         """Select the item matching `change`, or the first item."""

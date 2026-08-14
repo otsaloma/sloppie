@@ -51,7 +51,10 @@ class Window(Gtk.ApplicationWindow):
         # These are the actions of the file sidebar's context menu, which
         # shows the accelerators added to the shortcut controller below.
         # They start out disabled, being no-ops without a file selected.
-        shortcuts = Gtk.ShortcutController(scope=Gtk.ShortcutScope.GLOBAL)
+        # The shortcuts run in the capture phase, so that they beat the
+        # terminal, which would eat them and pass them on to the shell.
+        shortcuts = Gtk.ShortcutController(
+            propagation_phase=Gtk.PropagationPhase.CAPTURE)
         for name, accelerator, callback in (
                 ("stage", "<Control>s", self._on_stage_activate),
                 ("unstage", "<Control>u", self._on_unstage_activate),

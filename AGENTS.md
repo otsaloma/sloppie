@@ -9,6 +9,25 @@ translations, none of that. We're targeting only Linux + GNOME + Wayland
 — it's the same system you're running on. Design-wise we want to follow
 GNOME/Adwaita look and feel (but not use the Adwaita library).
 
+## Keybindings
+
+The terminal makes every keybinding a conflict: VTE handles key presses
+on the focused terminal and forwards them to the shell, which stops
+propagation before the window's shortcuts get a turn. We therefore add
+the window's shortcut controllers in the capture phase, where they run
+before the terminal sees anything, meaning the shell never gets those
+keys. When adding a keybinding, always consider what it does in the
+shell; in readline and in the tty line discipline (`stty -a`); and avoid
+taking over anything important. Document what you do take below.
+
+| Keys   | Sloppie      | Shell action disabled                           |
+| ------ | ------------ | ----------------------------------------------- |
+| Ctrl+E | Edit file    | readline end-of-line: cursor to end of line     |
+| Ctrl+Q | Close window | tty XON: resume output stopped by Ctrl+S        |
+| Ctrl+S | Stage file   | tty XOFF: stop output until Ctrl+Q              |
+| Ctrl+U | Unstage file | readline unix-line-discard: erase to line start |
+| Ctrl+W | Close window | readline unix-word-rubout: erase preceding word |
+
 ## GTK Documentation
 
 Documentation for GTK and associated libraries is available as GIR files

@@ -4,6 +4,10 @@
   font-family: "Berkeley Standard Mono", "SF Mono", monospace;
 }
 
+.slop-header-title label {
+  padding: 0 6px;
+}
+
 .slop-file-sidebar listview {
   background-color: transparent;
 }

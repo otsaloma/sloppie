@@ -192,15 +192,24 @@ class Repository:
             "untracked": self._list_untracked_changes(),
         }
 
+    def get_branch(self):
+        """Return the name of the branch checked out."""
+        # A detached HEAD is on no branch, name the commit instead.
+        branch = self._git("branch", "--show-current").strip()
+        return branch or self._git("rev-parse", "--short", "HEAD").strip()
+
     def get_fingerprint(self):
         """Return a value that changes when anything in the repository does."""
         # Cheap enough to poll: a single git command that skips ignored
         # files. Status alone would miss edits that leave a file's status
         # unchanged, so include modification times of the listed files.
-        output = self._git("status", "--porcelain", "-z", "--untracked-files=all")
+        output = self._git("status", "--porcelain", "-z",
+                           "--branch", "--untracked-files=all")
         fields = [x for x in output.split("\0") if x]
         times = []
-        i = 0
+        # Skip the header '## branch...' that --branch adds as the first
+        # record, there to catch a switch of branch as a change too.
+        i = 1
         while i < len(fields):
             # Records are 'XY path\0', except for renames and copies,
             # where the old path follows as one more field.

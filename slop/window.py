@@ -24,6 +24,7 @@ from gi.repository import Gio
 from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
+from gi.repository import Pango
 from slop.git import parse_diff
 from slop.git import SECTIONS
 
@@ -127,6 +128,33 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_widgets(self):
         header = Gtk.HeaderBar()
+        # The icon theme has no commit icon, a save icon being the
+        # closest thing. Not yet hooked up to anything.
+        commit = Gtk.Button(icon_name="document-save-symbolic",
+                            tooltip_text="Commit")
+        header.pack_start(commit)
+        # The repository and the branch at the left end, styled like a
+        # window title and subtitle, but left-aligned and ellipsized to
+        # fit whatever space is left over by the rest of the header bar.
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        box.add_css_class("slop-header-title")
+        # Center the two lines together, the box being given the full
+        # height of the header bar, which they don't fill.
+        box.set_valign(Gtk.Align.CENTER)
+        # Claim all the width that the rest of the header bar leaves.
+        box.set_hexpand(True)
+        title = Gtk.Label(label=self.repository.root.name, xalign=0)
+        title.add_css_class("title")
+        self._branch_label = Gtk.Label(xalign=0)
+        for label in (title, self._branch_label):
+            label.set_ellipsize(Pango.EllipsizeMode.END)
+            # The header bar keeps the stack switcher centered only as
+            # long as what's packed at the start fits left of center, so
+            # ask for no width at all. Expanding above still gives these
+            # all the space that is actually free, ellipsizing the rest.
+            label.set_max_width_chars(1)
+            box.append(label)
+        header.pack_start(box)
         switcher = Gtk.StackSwitcher()
         header.set_title_widget(switcher)
         menu = Gio.Menu()
@@ -344,7 +372,9 @@ class Window(Gtk.ApplicationWindow):
             # we're reloading is caught by the next poll, not missed.
             self._fingerprint = self.repository.get_fingerprint()
             changes = self.repository.list_changes()
+            branch = self.repository.get_branch()
         except RuntimeError as error:
             print(f"sloppie: {error}", file=sys.stderr)
             return
+        self._branch_label.set_text(branch)
         self._file_sidebar.set_changes(changes)

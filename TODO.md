@@ -11,3 +11,4 @@
 - Add release to Makefile (see gaupol)
 - Write README.md
 - Use simple syntax highlighting in the diff view
+- Add viewing past commits

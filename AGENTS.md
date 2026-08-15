@@ -29,6 +29,7 @@ taking over anything important. Document what you do take below.
 | Ctrl+S     | Stage file   | tty XOFF: stop output until Ctrl+Q              |
 | Ctrl+U     | Unstage file | readline unix-line-discard: erase to line start |
 | Ctrl+W     | Close window | readline unix-word-rubout: erase preceding word |
+| F5         | Run command  | nothing in readline or tty; TUI apps lose F5    |
 
 ## GTK Documentation
 

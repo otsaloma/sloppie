@@ -135,6 +135,17 @@ class Window(Gtk.ApplicationWindow):
         shortcuts.add_shortcut(Gtk.Shortcut(
             trigger=Gtk.ShortcutTrigger.parse_string("<Control>m"),
             action=Gtk.NamedAction.new("win.add-comment")))
+        # Running takes the capture phase too, so that F5 works the same
+        # with the focus in a terminal as anywhere else in the window.
+        action = Gio.SimpleAction(name="run")
+        action.connect("activate", self._on_run_activate)
+        self.add_action(action)
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("F5"),
+            action=Gtk.NamedAction.new("win.run")))
+        action = Gio.SimpleAction(name="configure-run")
+        action.connect("activate", self._on_configure_run_activate)
+        self.add_action(action)
         # Closing the only window quits the application, so both of the
         # customary accelerators can just close the window.
         for accelerator in ("<Control>w", "<Control>q"):
@@ -228,6 +239,7 @@ class Window(Gtk.ApplicationWindow):
         switcher = Gtk.StackSwitcher()
         header.set_title_widget(switcher)
         menu = Gio.Menu()
+        menu.append("Configure Run Command…", "win.configure-run")
         menu.append("Wrap Lines", "win.wrap-lines")
         section = Gio.Menu()
         section.append("About Sloppie", "win.about")
@@ -240,6 +252,9 @@ class Window(Gtk.ApplicationWindow):
         header.pack_end(Gtk.Button(action_name="win.add-comment",
                                    icon_name="chat-message-new-symbolic",
                                    tooltip_text="Add Comment (Ctrl+M)"))
+        header.pack_end(Gtk.Button(action_name="win.run",
+                                   icon_name="media-playback-start-symbolic",
+                                   tooltip_text="Run (F5)"))
         self.set_titlebar(header)
         diff_scroller = Gtk.ScrolledWindow()
         diff_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -420,6 +435,31 @@ class Window(Gtk.ApplicationWindow):
         dialog.connect("added", lambda dialog, text:
                        self._comment_sidebar.add_comment(text))
         dialog.present()
+
+    def _on_run_activate(self, *args):
+        if command := self.config.read_item("run-command"):
+            return self._run(command)
+        # Nothing to run yet, so ask what to run and then run that.
+        dialog = slop.RunDialog(self, self.config)
+        dialog.connect("saved", lambda dialog, command: self._run(command))
+        dialog.present()
+
+    def _on_configure_run_activate(self, *args):
+        slop.RunDialog(self, self.config).present()
+
+    def _run(self, command):
+        try:
+            # Run via the shell, so that the command can be anything
+            # that would work in a terminal, and give it a session of
+            # its own, so that it neither dies along with sloppie nor
+            # takes signals meant for sloppie.
+            subprocess.Popen(["sh", "-c", command],
+                             cwd=str(self.repository.root),
+                             start_new_session=True)
+        except OSError as error:
+            return print(f"sloppie: {error}", file=sys.stderr)
+        # The command runs out of sight, so say that it was started.
+        self._toast.flash(f"Running '{command}'")
 
     def _on_committed(self, dialog):
         self._toast.flash("Committed changes")

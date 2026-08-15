@@ -41,6 +41,7 @@ from slop.diff import DiffView
 from slop.sidebar import FileSidebar
 from slop.comments import CommentDialog
 from slop.comments import CommentSidebar
+from slop.run import RunDialog
 from slop.terminal import Terminal
 from slop.toast import Toast
 from slop.about import AboutDialog

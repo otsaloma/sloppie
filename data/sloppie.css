@@ -8,6 +8,12 @@
   padding: 0 6px;
 }
 
+stackswitcher > button.text-button.slop-narrow-tab {
+  min-width: 36px;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .slop-file-sidebar listview {
   background-color: transparent;
 }

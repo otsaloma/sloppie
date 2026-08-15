@@ -45,7 +45,7 @@ class Window(Gtk.ApplicationWindow):
         self._shown_change = None
         self._stack = None
         self._stack_handler = None
-        self._terminal = None
+        self._terminals = []
         self._toast = None
         self._init_properties()
         if repository is None:
@@ -86,7 +86,7 @@ class Window(Gtk.ApplicationWindow):
         self._comment_sidebar = slop.CommentSidebar()
         self._diff_view = slop.DiffView()
         self._file_sidebar = slop.FileSidebar()
-        self._terminal = slop.Terminal(self.repository.root)
+        self._terminals = [slop.Terminal(self.repository.root) for i in range(3)]
         self._toast = slop.Toast()
         self._init_actions()
         self._init_widgets()
@@ -226,17 +226,24 @@ class Window(Gtk.ApplicationWindow):
         diff_scroller = Gtk.ScrolledWindow()
         diff_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         diff_scroller.set_child(self._diff_view)
-        terminal_scroller = Gtk.ScrolledWindow()
-        terminal_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        terminal_scroller.set_child(self._terminal)
         self._stack = Gtk.Stack()
         # The mnemonics only show the underline when Alt is held, the
         # focus shortcuts of the window do the actual moving of focus.
-        for child, name, title in ((diff_scroller, "diff", "_Diff"),
-                                   (terminal_scroller, "terminal", "_Terminal")):
-            page = self._stack.add_titled(child, name, title)
+        self._stack.add_titled(diff_scroller, "diff", "_Diff").set_use_underline(True)
+        # Only the first terminal is spelled out, the rest are numbered
+        # and narrowed by CSS: [ Diff | Terminal | 2 | 3 ].
+        for i, terminal in enumerate(self._terminals, start=1):
+            scroller = Gtk.ScrolledWindow()
+            scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            scroller.set_child(terminal)
+            title = "_Terminal" if i == 1 else str(i)
+            page = self._stack.add_titled(scroller, f"terminal-{i}", title)
             page.set_use_underline(True)
         switcher.set_stack(self._stack)
+        # The switcher builds a button per page in the order added, but
+        # hands out no reference to them, so walk its children instead.
+        for button in list(switcher)[2:]:
+            button.add_css_class("slop-narrow-tab")
         # Files | diff or terminal | comments, with the middle
         # getting the extra space and the sidebars always visible.
         # Sidebar widths are set dynamically in do_size_allocate.
@@ -401,6 +408,13 @@ class Window(Gtk.ApplicationWindow):
             if self._file_sidebar.focus_section(target):
                 self._show_diff_view()
             return
+        if target == "terminal":
+            # Cycle through the terminals, so that repeated presses take
+            # the user from the diff view to the first one and on.
+            names = [f"terminal-{i+1}" for i in range(len(self._terminals))]
+            shown = self._stack.get_visible_child_name()
+            target = (names[(names.index(shown) + 1) % len(names)]
+                      if shown in names else names[0])
         # Set the visible child even if unchanged, in which case no
         # notification follows and focus needs to be moved here.
         self._stack.set_visible_child_name(target)
@@ -414,10 +428,7 @@ class Window(Gtk.ApplicationWindow):
 
     def _focus_stack_view(self):
         # Focus the view itself, not the scroller around it.
-        widget = (self._diff_view
-                  if self._stack.get_visible_child_name() == "diff" else
-                  self._terminal)
-        widget.grab_focus()
+        self._stack.get_visible_child().get_child().grab_focus()
 
     def _on_wrap_lines_change_state(self, action, state):
         action.set_state(state)

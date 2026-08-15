@@ -35,9 +35,11 @@ class Terminal(Vte.Terminal):
 
     def __init__(self, directory):
         GObject.GObject.__init__(self)
+        self._directory = directory
         self._init_properties()
         self._init_colors()
-        self._spawn(directory)
+        self.connect("child-exited", self._on_child_exited)
+        self._spawn()
 
     def _init_colors(self):
         # The light variant of the OTS palette, as used in Ptyxis. Only
@@ -63,13 +65,13 @@ class Terminal(Vte.Terminal):
         self.set_font(Pango.FontDescription.from_string(
             "Berkeley Standard Mono Medium 10"))
 
-    def _spawn(self, directory):
+    def _spawn(self):
         # Fall back to sh if the user has no shell in the passwd database.
         shell = Vte.get_user_shell() or "/bin/sh"
         # Note that pygobject keeps child_setup_data, unlike the
         # documented signature, making this eleven arguments, not ten.
         self.spawn_async(Vte.PtyFlags.DEFAULT,
-                         str(directory),
+                         str(self._directory),
                          [shell],
                          None,
                          GLib.SpawnFlags.DEFAULT,
@@ -84,3 +86,11 @@ class Terminal(Vte.Terminal):
         if error is None: return
         # Without a shell the terminal is a blank box, so say why.
         print(f"sloppie: {error.message}", file=sys.stderr)
+
+    def _on_child_exited(self, terminal, status):
+        # Ctrl+D at the prompt exits the shell, which is easy to do by
+        # accident and would leave a dead terminal behind, so start a
+        # new shell to keep the terminal usable. Not once the window is
+        # gone though, that shell would only be orphaned.
+        if self.get_root() is None: return
+        self._spawn()

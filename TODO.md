@@ -1,6 +1,7 @@
 # TODO
 
-- Click line number to add comment (popover for comment)
+- Headerbar button to add a general comment (dialog for input)
+- Click line number to add comment (dialog for input)
 - Persist comments on disk against revision
 - Render comments in the right sidebar
 - Push comments to coding agent

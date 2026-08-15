@@ -36,6 +36,7 @@ class Window(Gtk.ApplicationWindow):
         # All of these are set once we have a repository, until then the
         # window holds nothing but the open button.
         self.config = None
+        self._branch = None
         self._branch_label = None
         self._comment_sidebar = None
         self._diff_view = None
@@ -436,7 +437,7 @@ class Window(Gtk.ApplicationWindow):
         dialog.present()
 
     def _on_add_comment_activate(self, *args):
-        dialog = slop.CommentDialog(self)
+        dialog = slop.CommentDialog(self, self._branch)
         # The comment lands in the sidebar in plain sight, so it needs
         # no toast to say that it was added.
         dialog.connect("added", lambda dialog, text:
@@ -543,6 +544,7 @@ class Window(Gtk.ApplicationWindow):
         except RuntimeError as error:
             print(f"sloppie: {error}", file=sys.stderr)
             return
+        self._branch = branch
         self._branch_label.set_text(branch)
         # Comments are written against a branch, so switching branch
         # puts the ones shown aside and brings back any of the new one.

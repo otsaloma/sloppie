@@ -42,8 +42,9 @@ class CommentDialog(Gtk.Window):
         "added": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
     }
 
-    def __init__(self, parent):
+    def __init__(self, parent, branch):
         GObject.GObject.__init__(self)
+        self._branch = branch
         self._button = Gtk.Button(label="_Add", use_underline=True)
         self._view = Gtk.TextView()
         self._init_properties(parent)
@@ -53,12 +54,23 @@ class CommentDialog(Gtk.Window):
     def _init_properties(self, parent):
         self.set_default_size(600, 300)
         self.set_modal(True)
-        self.set_title("Add Comment")
+        # Comments are written against a branch, so say which one, that
+        # being what tells apart one set of comments from another.
+        self.set_title(f"Add Comment on {self._branch}")
         self.set_transient_for(parent)
 
     def _init_widgets(self):
         header = Gtk.HeaderBar()
         header.set_show_title_buttons(False)
+        # A title of our own in place of the window title, so that it
+        # can be shown in red on main or master, where comments are
+        # most likely written against the wrong branch.
+        title = Gtk.Label(label=self.get_title())
+        title.add_css_class("title")
+        title.set_ellipsize(Pango.EllipsizeMode.END)
+        if self._branch in ("main", "master"):
+            title.add_css_class("slop-title-warning")
+        header.set_title_widget(title)
         cancel = Gtk.Button(label="_Cancel", use_underline=True)
         cancel.connect("clicked", lambda *args: self.close())
         header.pack_start(cancel)

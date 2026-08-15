@@ -1,6 +1,7 @@
 # TODO
 
-- Warn about adding comments to main/master?
+- Add Control+PageUp/PageDown to switch tabs
+- Allow creating/changing branch
 - Allow editing existing comment
 - Allow deleting existing comment
 - Push single comment to coding agent and dim comment

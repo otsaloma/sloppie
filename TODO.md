@@ -1,5 +1,6 @@
 # TODO
 
+- Add run button, configurable command
 - Warn about adding comments to main/master?
 - Click line number to add comment with path + hunk
 - Allow editing existing comment

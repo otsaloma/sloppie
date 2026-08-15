@@ -35,6 +35,7 @@ class Window(Gtk.ApplicationWindow):
         self.repository = repository
         # All of these are set once we have a repository, until then the
         # window holds nothing but the open button.
+        self.config = None
         self._branch_label = None
         self._comment_sidebar = None
         self._diff_view = None
@@ -83,6 +84,7 @@ class Window(Gtk.ApplicationWindow):
         self._init_repository()
 
     def _init_repository(self):
+        self.config = slop.Config(self.repository)
         self._comment_sidebar = slop.CommentSidebar(self.repository)
         self._diff_view = slop.DiffView()
         self._file_sidebar = slop.FileSidebar()
@@ -140,9 +142,12 @@ class Window(Gtk.ApplicationWindow):
                 trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
                 action=Gtk.NamedAction.new("window.close")))
         self.add_controller(shortcuts)
-        # This is the toggle in the header bar menu, which starts out
-        # in whatever state the diff view was created in.
-        wrap = self._diff_view.get_wrap_mode() != Gtk.WrapMode.NONE
+        # This is the toggle in the header bar menu, which starts out in
+        # whatever state it was left in for this repository.
+        wrap = self.config.read_item("wrap-lines", True)
+        self._diff_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR
+                                      if wrap else
+                                      Gtk.WrapMode.NONE)
         action = Gio.SimpleAction.new_stateful(
             "wrap-lines", None, GLib.Variant.new_boolean(wrap))
         action.connect("change-state", self._on_wrap_lines_change_state)
@@ -452,9 +457,11 @@ class Window(Gtk.ApplicationWindow):
 
     def _on_wrap_lines_change_state(self, action, state):
         action.set_state(state)
+        wrap = state.get_boolean()
         self._diff_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR
-                                      if state.get_boolean() else
+                                      if wrap else
                                       Gtk.WrapMode.NONE)
+        self.config.write_item("wrap-lines", wrap)
 
     def _on_about_activate(self, *args):
         slop.AboutDialog(self).present()

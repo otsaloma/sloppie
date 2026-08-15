@@ -25,7 +25,7 @@ class AboutDialog(Gtk.AboutDialog):
     def __init__(self, parent):
         GObject.GObject.__init__(self)
         self.set_authors(("Osmo Salomaa <otsaloma@iki.fi>",))
-        self.set_comments("Review slop like it's 2026")
+        self.set_comments("A development environment for the modern era")
         self.set_copyright("Copyright © 2026 Osmo Salomaa")
         self.set_license_type(Gtk.License.GPL_3_0)
         self.set_logo_icon_name("io.otsaloma.sloppie")

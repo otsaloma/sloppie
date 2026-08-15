@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Sloppie
-Comment=Review slop like it's 2026
+Comment=A development environment for the modern era
 Icon=io.otsaloma.sloppie
 Exec=sloppie %f
 Categories=GNOME;GTK;Development;RevisionControl;

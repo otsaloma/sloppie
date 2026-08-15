@@ -187,8 +187,8 @@ class Window(Gtk.ApplicationWindow):
         # The icon theme has no commit icon, a save icon being the
         # closest thing.
         commit = Gtk.Button(action_name="win.commit",
-                            icon_name="document-save-symbolic",
-                            tooltip_text="Commit")
+                            icon_name="object-select-symbolic",
+                            tooltip_text="Commit (Ctrl+Enter)")
         header.pack_start(commit)
         # The repository and the branch at the left end, styled like a
         # window title and subtitle, but left-aligned and ellipsized to

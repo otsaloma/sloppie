@@ -93,9 +93,7 @@ class DiffView(GtkSource.View):
         self.add_css_class("monospace")
         self.add_css_class("slop-diff-view")
         self.set_editable(False)
-        # Nothing here can be edited, but the cursor still marks the
-        # place that the edit action opens in the editor.
-        self.set_cursor_visible(True)
+        self.set_cursor_visible(False)
         self.set_show_line_numbers(False)
         self.set_highlight_current_line(False)
         self.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
@@ -184,6 +182,10 @@ class DiffView(GtkSource.View):
                if keep_position else 0)
         buffer.set_text(text)
         self._lines = lines
+        # Nothing here can be edited, but the cursor still marks the
+        # place that the edit action opens in the editor. With no diff
+        # there's no place either, only a caret blinking in the void.
+        self.set_cursor_visible(bool(lines))
         self._refine(lines)
         for gutter in (self._old_gutter, self._new_gutter):
             gutter.set_lines(lines)

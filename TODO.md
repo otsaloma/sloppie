@@ -1,6 +1,5 @@
 # TODO
 
-- Add Control+PageUp/PageDown to switch tabs
 - Allow creating/changing branch
 - Allow editing existing comment
 - Allow deleting existing comment

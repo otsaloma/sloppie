@@ -20,17 +20,19 @@ keys. When adding a keybinding, always consider what it does in the
 shell; in readline and in the tty line discipline (`stty -a`); and avoid
 taking over anything important. Document what you do take below.
 
-| Keys       | Sloppie      | Shell action disabled                           |
-| ---------- | ------------ | ----------------------------------------------- |
-| Ctrl+E     | Edit file    | readline end-of-line: cursor to end of line     |
-| Ctrl+Enter | Commit       | readline accept-line: same as a plain Enter     |
-| Ctrl+M     | Add comment  | tty ^M: same as a plain Enter, Return unharmed  |
-| Ctrl+Q     | Close window | tty XON: resume output stopped by Ctrl+S        |
-| Ctrl+S     | Stage file   | tty XOFF: stop output until Ctrl+Q              |
-| Ctrl+U     | Unstage file | readline unix-line-discard: erase to line start |
-| Ctrl+W     | Close window | readline unix-word-rubout: erase preceding word |
-| F5         | Run command  | nothing in readline or tty; TUI apps lose F5    |
-| Shift+F5   | Set command  | same as F5: nothing in readline or tty          |
+| Keys          | Sloppie      | Shell action disabled                           |
+| ------------- | ------------ | ----------------------------------------------- |
+| Ctrl+E        | Edit file    | readline end-of-line: cursor to end of line     |
+| Ctrl+Enter    | Commit       | readline accept-line: same as a plain Enter     |
+| Ctrl+M        | Add comment  | tty ^M: same as a plain Enter, Return unharmed  |
+| Ctrl+PageDown | Next tab     | nothing in readline or tty; TUI apps lose it    |
+| Ctrl+PageUp   | Previous tab | nothing in readline or tty; TUI apps lose it    |
+| Ctrl+Q        | Close window | tty XON: resume output stopped by Ctrl+S        |
+| Ctrl+S        | Stage file   | tty XOFF: stop output until Ctrl+Q              |
+| Ctrl+U        | Unstage file | readline unix-line-discard: erase to line start |
+| Ctrl+W        | Close window | readline unix-word-rubout: erase preceding word |
+| F5            | Run command  | nothing in readline or tty; TUI apps lose F5    |
+| Shift+F5      | Set command  | same as F5: nothing in readline or tty          |
 
 ## GTK Documentation
 

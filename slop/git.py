@@ -104,8 +104,9 @@ class Repository:
         self.root = Path(self._git("rev-parse", "--show-toplevel", cwd=path).strip())
         # The common directory is shared by all the worktrees of the
         # repository, unlike the git directory, which is per worktree.
-        self.git_dir = Path(self._git(
-            "rev-parse", "--path-format=absolute", "--git-common-dir").strip())
+        self.git_dir = Path(self._git("rev-parse",
+                                      "--path-format=absolute",
+                                      "--git-common-dir").strip())
 
     def _git(self, *args, cwd=None, ok_codes=(0,)):
         # Suppress external diff drivers and color, which would both
@@ -219,8 +220,7 @@ class Repository:
         # Cheap enough to poll: a single git command that skips ignored
         # files. Status alone would miss edits that leave a file's status
         # unchanged, so include modification times of the listed files.
-        output = self._git("status", "--porcelain", "-z",
-                           "--branch", "--untracked-files=all")
+        output = self._git("status", "--porcelain", "-z", "--branch", "--untracked-files=all")
         fields = [x for x in output.split("\0") if x]
         times = []
         # Skip the header '## branch...' that --branch adds as the first
@@ -240,8 +240,7 @@ class Repository:
         if change.section == "untracked":
             # An untracked file has nothing to diff against, but git can
             # still render it as an addition against an empty file.
-            return self._diff("--no-index", "--", "/dev/null", change.path,
-                              ok_codes=(0, 1))
+            return self._diff("--no-index", "--", "/dev/null", change.path, ok_codes=(0, 1))
         args = ["--cached"] if change.section == "staged" else []
         return self._diff(*args, "--", *self._paths(change))
 

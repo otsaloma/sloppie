@@ -103,9 +103,11 @@ class FileSidebar(Gtk.Box):
         change = header.get_item()
         # The mnemonics only show the underline when Alt is held, the
         # focus shortcuts of the window do the actual moving of focus.
-        title = {"staged": "_Staged",
-                 "unstaged": "_Unstaged",
-                 "untracked": "U_ntracked"}[change.section]
+        title = {
+            "staged": "_Staged",
+            "unstaged": "_Unstaged",
+            "untracked": "U_ntracked",
+        }[change.section]
         header.get_child().set_text_with_mnemonic(title)
 
     def _on_item_setup(self, factory, item):

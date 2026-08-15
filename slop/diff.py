@@ -134,8 +134,7 @@ class DiffView(GtkSource.View):
             if j - i == k - j:
                 for old, new in zip(range(i, j), range(j, k)):
                     # Skip the leading '-' and '+', which always differ.
-                    oldspans, newspans = find_spans(
-                        lines[old].text[1:], lines[new].text[1:])
+                    oldspans, newspans = find_spans(lines[old].text[1:], lines[new].text[1:])
                     self._tag(old, oldspans, "refine-removed")
                     self._tag(new, newspans, "refine-added")
             i = k

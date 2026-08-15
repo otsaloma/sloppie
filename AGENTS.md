@@ -30,6 +30,7 @@ taking over anything important. Document what you do take below.
 | Ctrl+U     | Unstage file | readline unix-line-discard: erase to line start |
 | Ctrl+W     | Close window | readline unix-word-rubout: erase preceding word |
 | F5         | Run command  | nothing in readline or tty; TUI apps lose F5    |
+| Shift+F5   | Set command  | same as F5: nothing in readline or tty          |
 
 ## GTK Documentation
 

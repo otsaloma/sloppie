@@ -146,6 +146,9 @@ class Window(Gtk.ApplicationWindow):
         action = Gio.SimpleAction(name="configure-run")
         action.connect("activate", self._on_configure_run_activate)
         self.add_action(action)
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Shift>F5"),
+            action=Gtk.NamedAction.new("win.configure-run")))
         # Closing the only window quits the application, so both of the
         # customary accelerators can just close the window.
         for accelerator in ("<Control>w", "<Control>q"):
@@ -162,6 +165,9 @@ class Window(Gtk.ApplicationWindow):
         action = Gio.SimpleAction.new_stateful(
             "wrap-lines", None, GLib.Variant.new_boolean(wrap))
         action.connect("change-state", self._on_wrap_lines_change_state)
+        self.add_action(action)
+        action = Gio.SimpleAction(name="configure")
+        action.connect("activate", self._on_configure_activate)
         self.add_action(action)
         action = Gio.SimpleAction(name="about")
         action.connect("activate", self._on_about_activate)
@@ -239,11 +245,9 @@ class Window(Gtk.ApplicationWindow):
         switcher = Gtk.StackSwitcher()
         header.set_title_widget(switcher)
         menu = Gio.Menu()
-        menu.append("Configure Run Command…", "win.configure-run")
         menu.append("Wrap Lines", "win.wrap-lines")
-        section = Gio.Menu()
-        section.append("About Sloppie", "win.about")
-        menu.append_section(None, section)
+        menu.append("Configure…", "win.configure")
+        menu.append("About Sloppie", "win.about")
         header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic",
                                        menu_model=menu,
                                        primary=True))
@@ -254,7 +258,7 @@ class Window(Gtk.ApplicationWindow):
                                    tooltip_text="Add Comment (Ctrl+M)"))
         header.pack_end(Gtk.Button(action_name="win.run",
                                    icon_name="media-playback-start-symbolic",
-                                   tooltip_text="Run (F5)"))
+                                   tooltip_text="Run (F5) / Configure (Shift-F5)"))
         self.set_titlebar(header)
         diff_scroller = Gtk.ScrolledWindow()
         diff_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -411,15 +415,18 @@ class Window(Gtk.ApplicationWindow):
 
     def _on_edit_activate(self, *args):
         change = self._file_sidebar.get_selected_change()
-        command = ["emacs", str(self.repository.root / change.path)]
+        arguments = [str(self.repository.root / change.path)]
         if position := self._diff_view.get_position():
             # Emacs takes the position to visit as '+LINE:COLUMN'
             # preceding the file that it applies to.
-            command.insert(1, "+{:d}:{:d}".format(*position))
+            arguments.insert(0, "+{:d}:{:d}".format(*position))
+        self._edit(*arguments)
+
+    def _edit(self, *arguments):
         try:
             # Give emacs a session of its own, so that it neither dies
             # along with sloppie nor takes signals meant for sloppie.
-            subprocess.Popen(command, start_new_session=True)
+            subprocess.Popen(["emacs", *arguments], start_new_session=True)
         except OSError as error:
             print(f"sloppie: {error}", file=sys.stderr)
 
@@ -502,6 +509,15 @@ class Window(Gtk.ApplicationWindow):
                                       if wrap else
                                       Gtk.WrapMode.NONE)
         self.config.write_item("wrap-lines", wrap)
+
+    def _on_configure_activate(self, *args):
+        # Give emacs an existing file to edit, so that it starts from
+        # valid JSON rather than an empty buffer in a directory that it
+        # would have to offer to create.
+        if not self.config.path.exists():
+            self.config.path.parent.mkdir(parents=True, exist_ok=True)
+            self.config.path.write_text("{}\n", "utf-8")
+        self._edit(str(self.config.path))
 
     def _on_about_activate(self, *args):
         slop.AboutDialog(self).present()

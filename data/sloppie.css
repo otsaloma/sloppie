@@ -2,6 +2,7 @@
 
 .monospace {
   font-family: "Berkeley Standard Mono", "SF Mono", monospace;
+  font-weight: 500;
 }
 
 .slop-header-title label {
@@ -51,6 +52,7 @@ stackswitcher > button.text-button.slop-narrow-tab {
 }
 
 .slop-diff-view {
+  font-weight: 400;
   line-height: 1.4;
   padding: 12px 0;
 }

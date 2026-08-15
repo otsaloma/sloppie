@@ -1,6 +1,5 @@
 # TODO
 
-- Headerbar button to add a general comment (dialog for input)
 - Warn about adding comments to main/master?
 - Click line number to add comment (dialog for input)
 - Push comments to coding agent

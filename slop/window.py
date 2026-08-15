@@ -125,6 +125,14 @@ class Window(Gtk.ApplicationWindow):
         shortcuts.add_shortcut(Gtk.Shortcut(
             trigger=Gtk.ShortcutTrigger.parse_string("<Control>Return"),
             action=Gtk.NamedAction.new("win.commit")))
+        # A comment can likewise be written at any time, with no file
+        # selected too, being a comment on the changes as a whole.
+        action = Gio.SimpleAction(name="add-comment")
+        action.connect("activate", self._on_add_comment_activate)
+        self.add_action(action)
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control>m"),
+            action=Gtk.NamedAction.new("win.add-comment")))
         # Closing the only window quits the application, so both of the
         # customary accelerators can just close the window.
         for accelerator in ("<Control>w", "<Control>q"):
@@ -222,6 +230,11 @@ class Window(Gtk.ApplicationWindow):
         header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic",
                                        menu_model=menu,
                                        primary=True))
+        # Packed after the menu, which puts it left of the menu, the
+        # header bar filling its end from the right inwards.
+        header.pack_end(Gtk.Button(action_name="win.add-comment",
+                                   icon_name="chat-message-new-symbolic",
+                                   tooltip_text="Add Comment (Ctrl+M)"))
         self.set_titlebar(header)
         diff_scroller = Gtk.ScrolledWindow()
         diff_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
@@ -393,6 +406,14 @@ class Window(Gtk.ApplicationWindow):
     def _on_commit_activate(self, *args):
         dialog = slop.CommitDialog(self, self.repository)
         dialog.connect("committed", self._on_committed)
+        dialog.present()
+
+    def _on_add_comment_activate(self, *args):
+        dialog = slop.CommentDialog(self)
+        # The comment lands in the sidebar in plain sight, so it needs
+        # no toast to say that it was added.
+        dialog.connect("added", lambda dialog, text:
+                       self._comment_sidebar.add_comment(text))
         dialog.present()
 
     def _on_committed(self, dialog):

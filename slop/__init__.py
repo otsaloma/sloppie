@@ -38,6 +38,7 @@ from slop.git import FileChange
 from slop.git import Repository
 from slop.diff import DiffView
 from slop.sidebar import FileSidebar
+from slop.comments import CommentDialog
 from slop.comments import CommentSidebar
 from slop.terminal import Terminal
 from slop.toast import Toast

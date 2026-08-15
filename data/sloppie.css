@@ -65,6 +65,10 @@ stackswitcher > button.text-button.slop-narrow-tab {
   background-color: transparent;
 }
 
+.slop-comment-view {
+  line-height: 1.4;
+}
+
 .slop-comment-sidebar {
   padding: 12px;
 }

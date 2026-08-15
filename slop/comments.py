@@ -34,6 +34,86 @@ class Comment:
         self.path = path
         self.hunk = hunk
 
+class CommentDialog(Gtk.Window):
+
+    """Text of a new review comment."""
+
+    __gsignals__ = {
+        "added": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
+    }
+
+    def __init__(self, parent):
+        GObject.GObject.__init__(self)
+        self._button = Gtk.Button(label="_Add", use_underline=True)
+        self._view = Gtk.TextView()
+        self._init_properties(parent)
+        self._init_widgets()
+        self._init_signal_handlers()
+
+    def _init_properties(self, parent):
+        self.set_default_size(600, 300)
+        self.set_modal(True)
+        self.set_title("Add Comment")
+        self.set_transient_for(parent)
+
+    def _init_widgets(self):
+        header = Gtk.HeaderBar()
+        header.set_show_title_buttons(False)
+        cancel = Gtk.Button(label="_Cancel", use_underline=True)
+        cancel.connect("clicked", lambda *args: self.close())
+        header.pack_start(cancel)
+        self._button.add_css_class("suggested-action")
+        header.pack_end(self._button)
+        self.set_titlebar(header)
+        self._view.add_css_class("monospace")
+        self._view.add_css_class("slop-comment-view")
+        self._view.set_top_margin(12)
+        self._view.set_right_margin(12)
+        self._view.set_bottom_margin(12)
+        self._view.set_left_margin(12)
+        # Comments are prose, not code, so they are not to be broken
+        # into lines by hand, but wrapped to whatever width there is.
+        self._view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_child(self._view)
+        self.set_child(scroller)
+        # Typing is the only thing to do here, so start with the text
+        # view focused rather than the cancel button in the header.
+        self.set_focus(self._view)
+
+    def _init_signal_handlers(self):
+        self._button.connect("clicked", lambda *args: self._add())
+        buffer = self._view.get_buffer()
+        buffer.connect("changed", lambda *args: self._update_button())
+        self._update_button()
+        # The text view takes Enter for a newline and would take Ctrl+Enter
+        # too, hence the capture phase, where these run before it.
+        shortcuts = Gtk.ShortcutController(
+            propagation_phase=Gtk.PropagationPhase.CAPTURE)
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control>Return"),
+            action=Gtk.CallbackAction.new(lambda *args: self._add() or True)))
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("Escape"),
+            action=Gtk.NamedAction.new("window.close")))
+        self.add_controller(shortcuts)
+
+    def _get_text(self):
+        buffer = self._view.get_buffer()
+        return buffer.get_text(*buffer.get_bounds(), False).strip()
+
+    def _update_button(self):
+        # An empty comment is no comment at all.
+        self._button.set_sensitive(bool(self._get_text()))
+
+    def _add(self):
+        # Reachable with nothing typed by way of Ctrl+Enter, which,
+        # unlike the button, cannot be made insensitive.
+        if not self._get_text(): return
+        self.emit("added", self._get_text())
+        self.close()
+
 class CommentSidebar(Gtk.Box):
 
     """Review comments on the changes, kept until an agent handles them."""

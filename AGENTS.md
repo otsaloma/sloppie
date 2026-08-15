@@ -24,6 +24,7 @@ taking over anything important. Document what you do take below.
 | ---------- | ------------ | ----------------------------------------------- |
 | Ctrl+E     | Edit file    | readline end-of-line: cursor to end of line     |
 | Ctrl+Enter | Commit       | readline accept-line: same as a plain Enter     |
+| Ctrl+M     | Add comment  | tty ^M: same as a plain Enter, Return unharmed  |
 | Ctrl+Q     | Close window | tty XON: resume output stopped by Ctrl+S        |
 | Ctrl+S     | Stage file   | tty XOFF: stop output until Ctrl+Q              |
 | Ctrl+U     | Unstage file | readline unix-line-discard: erase to line start |

@@ -372,11 +372,15 @@ class Window(Gtk.ApplicationWindow):
 
     def _on_edit_activate(self, *args):
         change = self._file_sidebar.get_selected_change()
-        path = self.repository.root / change.path
+        command = ["emacs", str(self.repository.root / change.path)]
+        if position := self._diff_view.get_position():
+            # Emacs takes the position to visit as '+LINE:COLUMN'
+            # preceding the file that it applies to.
+            command.insert(1, "+{:d}:{:d}".format(*position))
         try:
             # Give emacs a session of its own, so that it neither dies
             # along with sloppie nor takes signals meant for sloppie.
-            subprocess.Popen(["emacs", str(path)], start_new_session=True)
+            subprocess.Popen(command, start_new_session=True)
         except OSError as error:
             print(f"sloppie: {error}", file=sys.stderr)
 

@@ -77,6 +77,7 @@ class DiffView(GtkSource.View):
 
     def __init__(self):
         GObject.GObject.__init__(self)
+        self._lines = []
         self._old_gutter = LineNumberGutter("old")
         self._new_gutter = LineNumberGutter("new")
         self._init_properties()
@@ -92,7 +93,9 @@ class DiffView(GtkSource.View):
         self.add_css_class("monospace")
         self.add_css_class("slop-diff-view")
         self.set_editable(False)
-        self.set_cursor_visible(False)
+        # Nothing here can be edited, but the cursor still marks the
+        # place that the edit action opens in the editor.
+        self.set_cursor_visible(True)
         self.set_show_line_numbers(False)
         self.set_highlight_current_line(False)
         self.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
@@ -148,6 +151,28 @@ class DiffView(GtkSource.View):
                 buffer.get_iter_at_line_offset(line, start + 1)[1],
                 buffer.get_iter_at_line_offset(line, end + 1)[1])
 
+    def get_position(self):
+        """Return the one-based (line, column) in the new file at the cursor."""
+        buffer = self.get_buffer()
+        # A selection is returned as its bounds and an empty tuple if
+        # there is none. The cursor is at the end of a selection made by
+        # dragging, but its start is the interesting end of it.
+        bounds = buffer.get_selection_bounds()
+        start = (bounds[0] if bounds else
+                 buffer.get_iter_at_mark(buffer.get_insert()))
+        line = start.get_line()
+        if line < len(self._lines) and self._lines[line].new is not None:
+            # Column one is the first character after the diff marker,
+            # which is where the cursor lands if it is on the marker.
+            return self._lines[line].new, max(start.get_line_offset(), 1)
+        # Removed lines and headers exist only in the diff, so fall back
+        # on the closest line that the new file has, the one after it
+        # being where a removal took place.
+        for i in [*range(line, len(self._lines)), *reversed(range(line))]:
+            if self._lines[i].new is not None:
+                return self._lines[i].new, 1
+        return None
+
     def set_diff(self, lines, keep_position=False):
         """Show the parsed diff `lines`, `keep_position` to not scroll to the top."""
         buffer = self.get_buffer()
@@ -158,6 +183,7 @@ class DiffView(GtkSource.View):
         top = (self.get_line_at_y(self.get_visible_rect().y)[0].get_line()
                if keep_position else 0)
         buffer.set_text(text)
+        self._lines = lines
         self._refine(lines)
         for gutter in (self._old_gutter, self._new_gutter):
             gutter.set_lines(lines)

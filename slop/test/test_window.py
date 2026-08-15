@@ -45,6 +45,18 @@ class TestWindow(slop.test.TestCase):
         buffer = self.window._diff_view.get_buffer()
         assert buffer.get_text(*buffer.get_bounds(), False) == ""
 
+    def test_diff_view_position_matches_the_gutter(self):
+        sidebar = self.window._file_sidebar
+        model = sidebar._selection.get_model()
+        view = self.window._diff_view
+        buffer = view.get_buffer()
+        for i in range(model.get_n_items()):
+            sidebar._selection.set_selected(i)
+            for j, line in enumerate(view._lines):
+                if line.new is None: continue
+                buffer.place_cursor(buffer.get_iter_at_line_offset(j, 1)[1])
+                assert view.get_position() == (line.new, 1)
+
     def test_diff_view_line_numbers_match(self):
         sidebar = self.window._file_sidebar
         sidebar.select_change(sidebar.get_selected_change())

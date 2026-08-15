@@ -62,5 +62,29 @@ class TestHunks(slop.test.TestCase):
         assert slop.group_hunks([]) == []
 EOF
 
+# Comments: a short one, a couple of long ones that wrap over several
+# lines and a pasted error log that is cut short on its card, all of
+# them on the changes as a whole.
+mkdir -p ".git/sloppie/comments"
+cat > ".git/sloppie/comments/$(git branch --show-current).json" <<'EOF'
+[{
+  "text": "Rename the module to something less generic.",
+  "path": null,
+  "hunk": null
+}, {
+  "text": "Splitting a diff into hunks belongs in git.py next to parse_diff, which is the only place that knows what a hunk line looks like. A module of its own for one function is one file too many.",
+  "path": null,
+  "hunk": null
+}, {
+  "text": "The quote style reformat is unrelated to the rest of the changes here, please pull it out into a commit of its own so that the actual change is reviewable.",
+  "path": null,
+  "hunk": null
+}, {
+  "text": "This comes up every other run now, please look into it:\n\nTraceback (most recent call last):\n  File \"slop/window.py\", line 317, in _on_change_selected\n    text = self.repository.get_diff(change)\n  File \"slop/git.py\", line 237, in get_diff\n    return self._diff(*args, \"--\", *self._paths(change))\n  File \"slop/git.py\", line 122, in _git\n    raise RuntimeError(f\"{' '.join(command)}: {error}\")\nRuntimeError: git --no-pager -c color.ui=never diff --no-ext-diff -- slop/git.py: fatal: bad revision",
+  "path": null,
+  "hunk": null
+}]
+EOF
+
 echo "Launching against $TEST"
 exec "$ROOT/bin/sloppie" "$TEST"

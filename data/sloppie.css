@@ -66,7 +66,15 @@ stackswitcher > button.text-button.slop-narrow-tab {
 }
 
 .slop-comment-sidebar {
-  padding: 18px;
+  padding: 12px;
+}
+
+.slop-comment-card {
+  background-color: @theme_base_color;
+  border: 1px solid @borders;
+  border-radius: 12px;
+  box-shadow: 0 1px 6px alpha(@borders, 0.5);
+  padding: 9px 12px;
 }
 
 .slop-toast {

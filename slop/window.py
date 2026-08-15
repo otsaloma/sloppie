@@ -83,7 +83,7 @@ class Window(Gtk.ApplicationWindow):
         self._init_repository()
 
     def _init_repository(self):
-        self._comment_sidebar = slop.CommentSidebar()
+        self._comment_sidebar = slop.CommentSidebar(self.repository)
         self._diff_view = slop.DiffView()
         self._file_sidebar = slop.FileSidebar()
         self._terminals = [slop.Terminal(self.repository.root) for i in range(3)]
@@ -290,7 +290,6 @@ class Window(Gtk.ApplicationWindow):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def _on_change_selected(self, sidebar, change, by_user):
-        self._comment_sidebar.set_change(change)
         # The sidebar and the diff view belong together, so picking a
         # file should show its diff, even if the terminal was shown.
         # A reload reselecting a file should not steal the terminal.
@@ -461,4 +460,7 @@ class Window(Gtk.ApplicationWindow):
             print(f"sloppie: {error}", file=sys.stderr)
             return
         self._branch_label.set_text(branch)
+        # Comments are written against a branch, so switching branch
+        # puts the ones shown aside and brings back any of the new one.
+        self._comment_sidebar.set_branch(branch)
         self._file_sidebar.set_changes(changes)

@@ -102,6 +102,10 @@ class Repository:
 
     def __init__(self, path="."):
         self.root = Path(self._git("rev-parse", "--show-toplevel", cwd=path).strip())
+        # The common directory is shared by all the worktrees of the
+        # repository, unlike the git directory, which is per worktree.
+        self.git_dir = Path(self._git(
+            "rev-parse", "--path-format=absolute", "--git-common-dir").strip())
 
     def _git(self, *args, cwd=None, ok_codes=(0,)):
         # Suppress external diff drivers and color, which would both

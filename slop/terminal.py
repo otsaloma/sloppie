@@ -93,4 +93,7 @@ class Terminal(Vte.Terminal):
         # new shell to keep the terminal usable. Not once the window is
         # gone though, that shell would only be orphaned.
         if self.get_root() is None: return
+        # Clear the screen and the scrollback so that the new shell
+        # starts fresh instead of below the dead shell's output.
+        self.reset(True, True)
         self._spawn()

@@ -466,7 +466,7 @@ class Window(Gtk.ApplicationWindow):
         except OSError as error:
             return print(f"sloppie: {error}", file=sys.stderr)
         # The command runs out of sight, so say that it was started.
-        self._toast.flash(f"Running '{command}'")
+        self._toast.flash(f"Running {command}")
 
     def _on_committed(self, dialog):
         self._toast.flash("Committed changes")

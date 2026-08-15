@@ -26,32 +26,8 @@ def new_repository():
     """Create a scratch repository with a change of each kind."""
     root = Path(tempfile.mkdtemp(prefix="sloppie-"))
     atexit.register(shutil.rmtree, root, ignore_errors=True)
-    def git(*args):
-        subprocess.run(["git", *args],
-                       cwd=str(root),
-                       check=True,
-                       stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL)
-
-    git("init", "-q")
-    # Give the repository an identity of its own, so that commits made
-    # here and by the code under test work without a global git config.
-    git("config", "user.email", "test@test")
-    git("config", "user.name", "Test")
-    (root / "modified.txt").write_text("a\nb\nc\n", "utf-8")
-    (root / "renamed-from.txt").write_text("keep\n", "utf-8")
-    (root / "binary.bin").write_bytes(b"bin\x00\x01data\n")
-    git("add", "-A")
-    git("commit", "-qm", "init")
-    # Staged: a modification, a rename and a binary change.
-    (root / "modified.txt").write_text("a\nB\nc\nd\n", "utf-8")
-    git("mv", "renamed-from.txt", "renamed-to.txt")
-    (root / "binary.bin").write_bytes(b"bin\x00\x02data\n")
-    git("add", "-A")
-    # Unstaged: a further modification, without a trailing newline.
-    (root / "modified.txt").write_text("a\nB\nc\nd\ne", "utf-8")
-    # Untracked: a new file.
-    (root / "untracked.txt").write_text("new\n", "utf-8")
+    script = Path(__file__).parents[2] / "tools" / "fixture-minimal.sh"
+    subprocess.run([str(script), str(root)], check=True)
     return root
 
 class TestCase:

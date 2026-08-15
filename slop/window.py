@@ -246,7 +246,7 @@ class Window(Gtk.ApplicationWindow):
         header.set_title_widget(switcher)
         menu = Gio.Menu()
         menu.append("Wrap Lines", "win.wrap-lines")
-        menu.append("Configure…", "win.configure")
+        menu.append("Configure", "win.configure")
         menu.append("About Sloppie", "win.about")
         header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic",
                                        menu_model=menu,

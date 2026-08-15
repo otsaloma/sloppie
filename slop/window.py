@@ -30,17 +30,64 @@ from slop.git import SECTIONS
 
 class Window(Gtk.ApplicationWindow):
 
-    def __init__(self, repository):
+    def __init__(self, repository=None):
         GObject.GObject.__init__(self)
         self.repository = repository
+        # All of these are set once we have a repository, until then the
+        # window holds nothing but the open button.
+        self._branch_label = None
+        self._comment_sidebar = None
+        self._diff_view = None
+        self._file_sidebar = None
+        self._fingerprint = None
+        self._paned = None
+        self._right_paned = None
+        self._shown_change = None
+        self._stack = None
+        self._stack_handler = None
+        self._terminal = None
+        self._toast = None
+        self._init_properties()
+        if repository is None:
+            # Launched from a launcher rather than a terminal, with no
+            # directory to fall back on, so ask which repository to open
+            # and build the rest of the window once we know.
+            return self._init_open_button()
+        self._init_repository()
+
+    def _init_open_button(self):
+        button = Gtk.Button(label="_Open Repository", use_underline=True)
+        button.add_css_class("suggested-action")
+        button.set_halign(Gtk.Align.CENTER)
+        button.set_valign(Gtk.Align.CENTER)
+        button.connect("clicked", self._on_open_clicked)
+        self.set_child(button)
+
+    def _on_open_clicked(self, button):
+        dialog = Gtk.FileDialog(modal=True, title="Open Repository")
+        dialog.select_folder(self, None, self._on_folder_selected)
+
+    def _on_folder_selected(self, dialog, result):
+        try:
+            file = dialog.select_folder_finish(result)
+        except GLib.Error:
+            # The user dismissed the dialog.
+            return
+        try:
+            self.repository = slop.Repository(file.get_path())
+        except RuntimeError as error:
+            # Leave the button be, the user can try another directory.
+            return print(f"sloppie: {error}", file=sys.stderr)
+        # The open button goes away as the widgets built here take its
+        # place as the child of the window.
+        self._init_repository()
+
+    def _init_repository(self):
         self._comment_sidebar = slop.CommentSidebar()
         self._diff_view = slop.DiffView()
         self._file_sidebar = slop.FileSidebar()
-        self._terminal = slop.Terminal(repository.root)
+        self._terminal = slop.Terminal(self.repository.root)
         self._toast = slop.Toast()
-        self._fingerprint = None
-        self._shown_change = None
-        self._init_properties()
         self._init_actions()
         self._init_widgets()
         self._init_focus_shortcuts()
@@ -213,6 +260,9 @@ class Window(Gtk.ApplicationWindow):
         self.set_child(overlay)
 
     def do_size_allocate(self, width, height, baseline):
+        if self._paned is None:
+            # Nothing but the open button until a repository is chosen.
+            return Gtk.ApplicationWindow.do_size_allocate(self, width, height, baseline)
         # Keep both sidebars at a sixth of the window width, the middle
         # getting the rest, minus the two one pixel paned handles.
         sidebar = round(width / 6)

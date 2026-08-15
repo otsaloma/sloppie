@@ -33,21 +33,24 @@ class Application(Gtk.Application):
 
     def _on_activate(self, app, args):
         args = self._parse_arguments(args)
-        try:
-            repository = slop.Repository(args.path)
-        except Exception as error:
-            # Nothing to show without a repository, so fail like git does.
-            print(f"sloppie: {error}", file=sys.stderr)
-            raise SystemExit(1)
+        repository = None
+        if args.path is not None:
+            try:
+                repository = slop.Repository(args.path)
+            except Exception as error:
+                # Nothing to show without a repository, so fail like git does.
+                print(f"sloppie: {error}", file=sys.stderr)
+                raise SystemExit(1)
+        # Without a path the window asks for a repository itself.
         window = slop.Window(repository)
         self.add_window(window)
         window.present()
 
     def _parse_arguments(self, args):
-        parser = ArgumentParser(usage="sloppie [OPTION...] PATH")
+        parser = ArgumentParser(usage="sloppie [OPTION...] [PATH]")
         parser.add_argument("path",
                             nargs="?",
-                            default=".",
+                            default=None,
                             help="path of the git repository")
 
         parser.add_argument("--version",

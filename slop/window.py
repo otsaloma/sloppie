@@ -234,6 +234,10 @@ class Window(Gtk.ApplicationWindow):
         # focus on the switcher button, so focus the view shown here.
         self._stack_handler = self._stack.connect(
             "notify::visible-child", lambda *args: self._focus_stack_view())
+        # Looking at a tab is seeing to whatever rang there.
+        self._stack.connect("notify::visible-child", lambda *args:
+                            self._stack.get_page(self._stack.get_visible_child())
+                            .set_needs_attention(False))
         # Poll instead of watching the working tree, which would mean a
         # watch on each of possibly very many directories. A poll costs
         # one git command that skips ignored files, such as node_modules.
@@ -314,6 +318,7 @@ class Window(Gtk.ApplicationWindow):
             title = "_Terminal" if i == 1 else str(i)
             page = self._stack.add_titled(scroller, f"terminal-{i}", title)
             page.set_use_underline(True)
+            terminal.connect("bell", self._on_terminal_bell, page)
         switcher.set_stack(self._stack)
         # The switcher builds a button per page in the order added, but
         # hands out no reference to them, so walk its children instead.
@@ -564,6 +569,15 @@ class Window(Gtk.ApplicationWindow):
         index = names.index(self._stack.get_visible_child_name()) + step.get_int32()
         self._stack.set_visible_child_name(names[index % len(names)])
         self._focus_stack_view()
+
+    def _on_terminal_bell(self, terminal, page):
+        # A bell means that whatever runs in the terminal wants
+        # attention: an agent done with its turn, a build finished. The
+        # switcher marks the tab with a dot, but only as long as it's not
+        # the tab on screen, so don't mark the one being looked at, which
+        # would leave a mark to appear on switching away from it.
+        if page.get_child() is self._stack.get_visible_child(): return
+        page.set_needs_attention(True)
 
     def _show_diff_view(self):
         # Focus belongs to the sidebar here, so block the handler that

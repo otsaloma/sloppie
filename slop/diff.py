@@ -170,6 +170,20 @@ class DiffView(GtkSource.View):
                 return self._lines[i].new, 1
         return None
 
+    def get_selection(self):
+        """Return the selected lines of the diff, or ``None`` if none."""
+        buffer = self.get_buffer()
+        bounds = buffer.get_selection_bounds()
+        if not bounds: return None
+        start, end = bounds
+        # A comment is on whole lines, however much of the first and the
+        # last one was actually selected. A line where the selection only
+        # ends, at its very start, has nothing of it selected.
+        start.set_line_offset(0)
+        if not end.starts_line() and not end.ends_line():
+            end.forward_to_line_end()
+        return buffer.get_text(start, end, False)
+
     def set_diff(self, lines, keep_position=False):
         """Show the parsed diff `lines`, `keep_position` to not scroll to the top."""
         buffer = self.get_buffer()

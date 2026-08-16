@@ -474,7 +474,14 @@ class Window(Gtk.ApplicationWindow):
         dialog.present()
 
     def _on_add_comment_activate(self, *args):
-        self._comment_sidebar.new_comment()
+        # A selection in the diff view means a comment on that piece of
+        # code, in the file whose diff is shown. Without one the comment
+        # is on the changes as a whole.
+        hunk = self._diff_view.get_selection()
+        change = self._file_sidebar.get_selected_change()
+        if hunk is None or change is None:
+            return self._comment_sidebar.new_comment()
+        self._comment_sidebar.new_comment(change.path, hunk)
 
     def _on_send_comments_activate(self, *args):
         self._comment_sidebar.send_all_comments()

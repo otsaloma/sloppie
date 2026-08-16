@@ -60,11 +60,14 @@ class CommentDialog(Gtk.Window):
         "sent": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
     }
 
-    def __init__(self, parent, branch, text=""):
+    def __init__(self, parent, branch, text="", path=None, hunk=None):
         GObject.GObject.__init__(self)
         self._branch = branch
         # Text given means an existing comment being edited.
         self._text = text
+        # Both None for a comment on the changes as a whole.
+        self._path = path
+        self._hunk = hunk
         self._button = Gtk.Button(label="_Save" if text else "_Add",
                                   use_underline=True)
         # The icon theme has no up arrow that would fit a header bar,
@@ -85,18 +88,42 @@ class CommentDialog(Gtk.Window):
         self.set_title(f"{verb} Comment on {self._branch}")
         self.set_transient_for(parent)
 
+    def _get_subtitle(self):
+        """Return a line saying what the comment is on, if not the changes."""
+        parts = []
+        if self._hunk is not None:
+            count = len(self._hunk.strip("\n").split("\n"))
+            parts.append(f"{count} line" if count == 1 else f"{count} lines")
+        if self._path is not None:
+            parts.append(f"in {self._path}" if parts else self._path)
+        return f"Regarding {' '.join(parts)}" if parts else None
+
     def _init_widgets(self):
         header = Gtk.HeaderBar()
         header.set_show_title_buttons(False)
         # A title of our own in place of the window title, so that it
         # can be shown in red on main or master, where comments are
         # most likely written against the wrong branch.
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        # Center the lines together, the box being given the full height
+        # of the header bar, which they don't fill.
+        box.set_valign(Gtk.Align.CENTER)
         title = Gtk.Label(label=self.get_title())
         title.add_css_class("title")
         title.set_ellipsize(Pango.EllipsizeMode.END)
         if self._branch in ("main", "master"):
             title.add_css_class("slop-title-warning")
-        header.set_title_widget(title)
+        box.append(title)
+        if subtitle := self._get_subtitle():
+            # A comment on a piece of code says which one, there being
+            # nothing else to tell it apart from a comment on the changes.
+            label = Gtk.Label(label=subtitle)
+            label.add_css_class("subtitle")
+            # Ellipsize in the middle, the end of a path being the file
+            # name, which is the part that says the most.
+            label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+            box.append(label)
+        header.set_title_widget(box)
         cancel = Gtk.Button(label="_Cancel", use_underline=True)
         cancel.connect("clicked", lambda *args: self.close())
         header.pack_start(cancel)
@@ -290,7 +317,8 @@ class CommentSidebar(Gtk.Box):
 
     def _edit_comment(self, comment):
         """Let the user rewrite, send or delete `comment`."""
-        dialog = CommentDialog(self.get_root(), self._branch, comment.text)
+        dialog = CommentDialog(self.get_root(), self._branch,
+                               comment.text, comment.path, comment.hunk)
 
         def on_saved(dialog, text):
             comment.text = text
@@ -340,14 +368,15 @@ class CommentSidebar(Gtk.Box):
         self._write()
         self._update_cards()
 
-    def new_comment(self):
-        """Let the user write a comment on the changes as a whole."""
-        dialog = CommentDialog(self.get_root(), self._branch)
+    def new_comment(self, path=None, hunk=None):
+        """Let the user write a comment on `path` and `hunk`, or on the changes."""
+        dialog = CommentDialog(self.get_root(), self._branch, path=path, hunk=hunk)
         # The comment lands in the sidebar in plain sight, so it needs
         # no toast to say that it was added.
-        dialog.connect("saved", lambda dialog, text: self.add_comment(text))
+        dialog.connect("saved", lambda dialog, text:
+                       self.add_comment(text, path, hunk))
         dialog.connect("sent", lambda dialog, text:
-                       self._send_comment(self.add_comment(text)))
+                       self._send_comment(self.add_comment(text, path, hunk)))
         dialog.present()
 
     def add_comment(self, text, path=None, hunk=None):

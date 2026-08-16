@@ -34,9 +34,9 @@ Document what you do take below.
 | Ctrl+S        | Stage file   | tty XOFF: stop output until Ctrl+Q              |
 | Ctrl+U        | Unstage file | readline unix-line-discard: erase to line start |
 | Ctrl+W        | Close window | readline unix-word-rubout: erase preceding word |
-| F5            | Run command  | nothing in readline or tty; TUI apps lose F5    |
 | Shift+Ctrl+C  | Copy         | tty ^C: interrupt, plain Ctrl+C unharmed        |
 | Shift+Ctrl+V  | Paste        | readline quoted-insert, plain Ctrl+V unharmed   |
+| F5            | Run command  | nothing in readline or tty; TUI apps lose F5    |
 | Shift+F5      | Set command  | same as F5: nothing in readline or tty          |
 
 When unsure what to do about VTE keybindings and other behaviour: check

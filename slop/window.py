@@ -63,6 +63,7 @@ class Window(Gtk.ApplicationWindow):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
         box.set_halign(Gtk.Align.CENTER)
         box.set_valign(Gtk.Align.CENTER)
+        box.set_margin_bottom(200)
         button = Gtk.Button(label="_Open Repository", use_underline=True)
         button.add_css_class("suggested-action")
         button.set_halign(Gtk.Align.CENTER)

@@ -26,13 +26,29 @@ class Comment:
 
     """One review comment, on the changes as a whole or on a hunk."""
 
-    __slots__ = ("text", "path", "hunk")
+    __slots__ = ("text", "path", "hunk", "sent")
 
-    def __init__(self, text, path=None, hunk=None):
+    def __init__(self, text, path=None, hunk=None, sent=False):
         self.text = text
         # Both None for a comment on the changes as a whole.
         self.path = path
         self.hunk = hunk
+        # True once handed to an agent, which is a fact worth keeping,
+        # a comment being no less permanent for having been sent.
+        self.sent = sent
+
+    def serialize(self):
+        """Return the comment as text to be handed to an agent."""
+        parts = []
+        if self.path is not None:
+            # A hunk always comes with the path of the file it's from.
+            parts.append(f"In `{self.path}` regarding:"
+                         if self.hunk is not None else
+                         f"In `{self.path}`:")
+        if self.hunk is not None:
+            parts.append("```\n" + self.hunk.strip("\n") + "\n```")
+        parts.append(self.text)
+        return "\n\n".join(parts)
 
 class CommentDialog(Gtk.Window):
 
@@ -41,6 +57,7 @@ class CommentDialog(Gtk.Window):
     __gsignals__ = {
         "deleted": (GObject.SignalFlags.RUN_LAST, None, ()),
         "saved": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
+        "sent": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
     }
 
     def __init__(self, parent, branch, text=""):
@@ -50,6 +67,10 @@ class CommentDialog(Gtk.Window):
         self._text = text
         self._button = Gtk.Button(label="_Save" if text else "_Add",
                                   use_underline=True)
+        # The icon theme has no up arrow that would fit a header bar,
+        # a send icon being the closest thing.
+        self._send = Gtk.Button(icon_name="send-to-symbolic",
+                                tooltip_text="Send to Agent")
         self._view = Gtk.TextView()
         self._init_properties(parent)
         self._init_widgets()
@@ -87,6 +108,9 @@ class CommentDialog(Gtk.Window):
             header.pack_start(delete)
         self._button.add_css_class("suggested-action")
         header.pack_end(self._button)
+        # Packed after the save button, which puts it left of it, the
+        # header bar filling its end from the right inwards.
+        header.pack_end(self._send)
         self.set_titlebar(header)
         self._view.add_css_class("monospace")
         self._view.add_css_class("slop-comment-view")
@@ -108,6 +132,7 @@ class CommentDialog(Gtk.Window):
 
     def _init_signal_handlers(self):
         self._button.connect("clicked", lambda *args: self._save())
+        self._send.connect("clicked", lambda *args: self._send_to_agent())
         buffer = self._view.get_buffer()
         buffer.connect("changed", lambda *args: self._update_button())
         self._update_button()
@@ -130,12 +155,19 @@ class CommentDialog(Gtk.Window):
     def _update_button(self):
         # An empty comment is no comment at all.
         self._button.set_sensitive(bool(self._get_text()))
+        self._send.set_sensitive(bool(self._get_text()))
 
     def _save(self):
         # Reachable with nothing typed by way of Ctrl+Enter, which,
         # unlike the button, cannot be made insensitive.
         if not self._get_text(): return
         self.emit("saved", self._get_text())
+        self.close()
+
+    def _send_to_agent(self):
+        # Sending is saving too, the comment being kept either way,
+        # also if there turns out to be no agent to send it to.
+        self.emit("sent", self._get_text())
         self.close()
 
     def _delete(self):
@@ -203,7 +235,8 @@ class CommentSidebar(Gtk.Box):
             # Rather show no comments than fail to open the repository.
             print(f"sloppie: {error}", file=sys.stderr)
             return []
-        return [Comment(x["text"], x.get("path"), x.get("hunk")) for x in items]
+        return [Comment(x["text"], x.get("path"), x.get("hunk"), x.get("sent", False))
+                for x in items]
 
     def _write(self):
         """Write the comments of the current branch to file."""
@@ -213,7 +246,7 @@ class CommentSidebar(Gtk.Box):
                 # Leave no file behind once the last comment is gone.
                 return path.unlink(missing_ok=True)
             path.parent.mkdir(parents=True, exist_ok=True)
-            items = [{"text": x.text, "path": x.path, "hunk": x.hunk}
+            items = [{"text": x.text, "path": x.path, "hunk": x.hunk, "sent": x.sent}
                      for x in self._comments]
             path.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", "utf-8")
         except OSError as error:
@@ -229,6 +262,10 @@ class CommentSidebar(Gtk.Box):
         if len(text) > 400:
             text = text[:400].rstrip() + "..."
         label = Gtk.Label(label=text, xalign=0)
+        if comment.sent:
+            # A sent comment is done with, as far as the user is
+            # concerned, but stays around to be resent or deleted.
+            label.add_css_class("slop-comment-sent")
         label.set_wrap(True)
         label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
         # Ask for no width at all, so that the text wraps to the
@@ -252,7 +289,7 @@ class CommentSidebar(Gtk.Box):
         self._placeholder.set_visible(not self._comments)
 
     def _edit_comment(self, comment):
-        """Let the user rewrite or delete `comment`."""
+        """Let the user rewrite, send or delete `comment`."""
         dialog = CommentDialog(self.get_root(), self._branch, comment.text)
 
         def on_saved(dialog, text):
@@ -260,19 +297,47 @@ class CommentSidebar(Gtk.Box):
             self._write()
             self._update_cards()
 
+        def on_sent(dialog, text):
+            comment.text = text
+            self._write()
+            self._update_cards()
+            self._send_comment(comment)
+
         def on_deleted(dialog):
             self._comments.remove(comment)
             self._write()
             self._update_cards()
         dialog.connect("saved", on_saved)
+        dialog.connect("sent", on_sent)
         dialog.connect("deleted", on_deleted)
         dialog.present()
 
-    def add_comment(self, text, path=None, hunk=None):
-        """Add a comment on `path` and `hunk`, saving it to file."""
-        self._comments.append(Comment(text, path, hunk))
+    def _send_comment(self, comment):
+        """Hand `comment` to the agent, marking it sent if that worked."""
+        # A comment that didn't go stays as it was, so that the user can
+        # start the agent and send it again.
+        if not self.get_root().send_to_agent(comment.serialize()): return
+        comment.sent = True
         self._write()
         self._update_cards()
+
+    def new_comment(self):
+        """Let the user write a comment on the changes as a whole."""
+        dialog = CommentDialog(self.get_root(), self._branch)
+        # The comment lands in the sidebar in plain sight, so it needs
+        # no toast to say that it was added.
+        dialog.connect("saved", lambda dialog, text: self.add_comment(text))
+        dialog.connect("sent", lambda dialog, text:
+                       self._send_comment(self.add_comment(text)))
+        dialog.present()
+
+    def add_comment(self, text, path=None, hunk=None):
+        """Add and return a comment on `path` and `hunk`, saving it to file."""
+        comment = Comment(text, path, hunk)
+        self._comments.append(comment)
+        self._write()
+        self._update_cards()
+        return comment
 
     def set_branch(self, branch):
         """Show the comments written against `branch`."""

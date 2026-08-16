@@ -1,6 +1,5 @@
 # TODO
 
-- Push single comment to coding agent and dim comment
 - Push all comments to coding agent and dim comments
 - Add button to delete all dimmed comments
 - Click line number to add comment with path + hunk

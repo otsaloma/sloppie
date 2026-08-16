@@ -456,12 +456,28 @@ class Window(Gtk.ApplicationWindow):
         dialog.present()
 
     def _on_add_comment_activate(self, *args):
-        dialog = slop.CommentDialog(self, self._branch)
-        # The comment lands in the sidebar in plain sight, so it needs
-        # no toast to say that it was added.
-        dialog.connect("saved", lambda dialog, text:
-                       self._comment_sidebar.add_comment(text))
-        dialog.present()
+        self._comment_sidebar.new_comment()
+
+    def send_to_agent(self, text):
+        """Paste `text` into the agent running in the first terminal."""
+        # Pasting into a shell prompt would leave whatever the comment
+        # happens to contain there to be run, so hand the text over only
+        # to an agent that is actually running and waiting for a prompt.
+        terminal = self._terminals[0]
+        commands = terminal.get_foreground_commands()
+        if not any(x in ("claude", "codex") for x in commands):
+            self._toast.flash("No agent running in the terminal")
+            return False
+        # Show the terminal, the paste being there to be read and sent
+        # by the user, who presses Enter, which we deliberately don't.
+        self._stack.set_visible_child_name("terminal-1")
+        self._focus_stack_view()
+        # Paste rather than feed the text, which is to say as bracketed
+        # paste, where the agent takes it for text and not for keys
+        # pressed, and where VTE strips the control characters that a
+        # hunk could otherwise smuggle in.
+        terminal.paste_text(text)
+        return True
 
     def _on_run_activate(self, *args):
         if command := self.config.read_item("run-command"):

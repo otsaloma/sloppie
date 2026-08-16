@@ -94,6 +94,10 @@ stackswitcher > button.text-button.slop-narrow-tab {
   background-color: mix(@theme_base_color, @theme_selected_bg_color, 0.07);
 }
 
+.slop-comment-sent {
+  text-decoration-line: line-through;
+}
+
 .slop-toast {
   background-color: @theme_fg_color;
   border-radius: 99px;

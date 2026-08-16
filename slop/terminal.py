@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import os
 import sys
 
 from gi.repository import Gdk
@@ -22,6 +23,7 @@ from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Pango
 from gi.repository import Vte
+from pathlib import Path
 
 def parse_color(color):
     """Return hexadecimal `color` as a `Gdk.RGBA`."""
@@ -36,6 +38,7 @@ class Terminal(Vte.Terminal):
     def __init__(self, directory):
         GObject.GObject.__init__(self)
         self._directory = directory
+        self._pid = None
         self._init_properties()
         self._init_colors()
         self.connect("child-exited", self._on_child_exited)
@@ -83,9 +86,43 @@ class Terminal(Vte.Terminal):
                          None)
 
     def _on_spawn_done(self, terminal, pid, error, *args):
+        self._pid = pid if error is None else None
         if error is None: return
         # Without a shell the terminal is a blank box, so say why.
         print(f"sloppie: {error.message}", file=sys.stderr)
+
+    def get_foreground_commands(self):
+        """Return the names of the commands running, empty if at the prompt."""
+        # VTE's shell termprops would tell us this, but only with shell
+        # integration that emits them, which we can't count on. The pty
+        # knows all the same: its foreground process group is the
+        # shell's own only while the shell waits for a command.
+        if self._pid is None: return []
+        if (pty := self.get_pty()) is None: return []
+        try:
+            group = os.tcgetpgrp(pty.get_fd())
+        except OSError:
+            return []
+        if group == self._pid: return []
+        # The whole group, not merely its leader, a command often being
+        # a wrapper with the real thing as its child. codex, to name
+        # one, is a Node script that spawns a binary of its own, and
+        # its own name reads 'MainThread', that being Node's main thread.
+        commands = []
+        for path in Path("/proc").glob("[0-9]*"):
+            try:
+                # The fields of stat are separated by spaces, but the
+                # second one is the command in parentheses and can
+                # contain anything, spaces and parentheses included, so
+                # only look past the last parenthesis, where the group
+                # is the third field.
+                stat = (path / "stat").read_text("utf-8")
+                if int(stat[stat.rindex(")") + 2:].split()[2]) != group: continue
+                commands.append((path / "comm").read_text("utf-8").strip())
+            except (OSError, ValueError):
+                # A process can be gone by the time we look at it.
+                continue
+        return commands
 
     def _on_child_exited(self, terminal, status):
         # Ctrl+D at the prompt exits the shell, which is easy to do by

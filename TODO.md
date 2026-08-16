@@ -1,6 +1,5 @@
 # TODO
 
-- Add build + install to Makefile (see gaupol)
 - Write README.md
 - Add with error_dialog(...) handler for any failing git operations
 - Review other error handlers

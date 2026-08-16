@@ -225,7 +225,7 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_properties(self):
         geometry = Gdk.Display.get_default().get_monitors()[0].get_geometry()
-        self.set_default_size(round(0.7 * geometry.width), round(0.8 * geometry.height))
+        self.set_default_size(round(0.7 * geometry.width), round(0.85 * geometry.height))
         self.set_title("Sloppie")
 
     def _init_signal_handlers(self):

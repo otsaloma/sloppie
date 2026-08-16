@@ -199,10 +199,9 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_tab_shortcuts(self):
         # The customary accelerators to step through the tabs of the
-        # stack, left and right: [ Diff | Terminal | 2 | 3 ]. They stop
-        # at either end rather than wrap around, so that one can hold
-        # Ctrl+Page_Up to be sure to land on the diff. Capture phase
-        # again, so that the terminal doesn't eat them.
+        # stack, left and right: [ Diff | Terminal | 2 | 3 ], wrapping
+        # around at either end. Capture phase again, so that the
+        # terminal doesn't eat them.
         action = Gio.SimpleAction(name="switch-tab", parameter_type=GLib.VariantType("i"))
         action.connect("activate", self._on_switch_tab_activate)
         self.add_action(action)
@@ -516,10 +515,7 @@ class Window(Gtk.ApplicationWindow):
     def _on_switch_tab_activate(self, action, step):
         names = ["diff"] + [f"terminal-{i+1}" for i in range(len(self._terminals))]
         index = names.index(self._stack.get_visible_child_name()) + step.get_int32()
-        # Stop at either end instead of wrapping around, doing nothing
-        # at all there, not even taking focus from wherever it is.
-        if not 0 <= index < len(names): return
-        self._stack.set_visible_child_name(names[index])
+        self._stack.set_visible_child_name(names[index % len(names)])
         self._focus_stack_view()
 
     def _show_diff_view(self):

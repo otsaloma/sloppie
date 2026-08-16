@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import os
+import tempfile
+
+# Keep tests from writing to the real data directory, where opening a
+# repository would leave the scratch repositories of tests in the list
+# of recent ones. GLib reads this only once, so set it before any use.
+os.environ["XDG_DATA_HOME"] = tempfile.mkdtemp(prefix="sloppie-data-")
 
 # Avoid segfaults with GTK 4.22 under Wayland: destroying a window
 # whose focus is in a text entry, with no other window left, and then

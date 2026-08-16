@@ -17,6 +17,35 @@
 
 import slop.test
 
+from gi.repository import Gtk
+from pathlib import Path
+from slop import recent
+
+class TestOpenView(slop.test.TestCase):
+
+    def setup_method(self, method):
+        # The source repository, the scratch ones of the other tests
+        # living under /tmp, which is deliberately not recorded.
+        self.root = Path(__file__).parents[2]
+        recent.add_repository(self.root)
+        # Without a repository the window shows the open button and the
+        # recently opened repositories, the one just added at the top.
+        self.window = slop.Window()
+
+    def teardown_method(self, method):
+        self.window.destroy()
+
+    def test_activating_a_recent_row_opens_it(self):
+        listbox = self._find_listbox(self.window.get_child())
+        listbox.emit("row-activated", listbox.get_row_at_index(0))
+        assert self.window.repository.root == self.root
+
+    def _find_listbox(self, widget):
+        if isinstance(widget, Gtk.ListBox): return widget
+        for child in widget:
+            if found := self._find_listbox(child):
+                return found
+
 class TestWindow(slop.test.TestCase):
 
     def setup_method(self, method):

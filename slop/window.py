@@ -25,6 +25,7 @@ from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
+from slop import recent
 from slop.git import parse_diff
 from slop.git import SECTIONS
 
@@ -50,20 +51,63 @@ class Window(Gtk.ApplicationWindow):
         self._terminals = []
         self._toast = None
         self._init_properties()
+        self.load_css()
         if repository is None:
             # Launched from a launcher rather than a terminal, with no
             # directory to fall back on, so ask which repository to open
             # and build the rest of the window once we know.
-            return self._init_open_button()
+            return self._init_open_view()
         self._init_repository()
 
-    def _init_open_button(self):
+    def _init_open_view(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        box.set_halign(Gtk.Align.CENTER)
+        box.set_valign(Gtk.Align.CENTER)
         button = Gtk.Button(label="_Open Repository", use_underline=True)
         button.add_css_class("suggested-action")
         button.set_halign(Gtk.Align.CENTER)
-        button.set_valign(Gtk.Align.CENTER)
         button.connect("clicked", self._on_open_clicked)
-        self.set_child(button)
+        box.append(button)
+        paths = recent.list_repositories()
+        if paths:
+            box.append(self._init_recent_list(paths))
+        self.set_child(box)
+
+    def _init_recent_list(self, paths):
+        listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE,
+                              show_separators=True)
+        # 'rich-list' gives the tall rows and the spacing between the
+        # widgets in them, the frame below the rounded border.
+        listbox.add_css_class("rich-list")
+        listbox.add_css_class("slop-recent-list")
+        # The rows are built here in the order of the paths given, so
+        # the row activated tells which of them to open.
+        listbox.connect("row-activated", lambda listbox, row:
+                        self._open_repository(paths[row.get_index()]))
+        for path in paths:
+            # The name of the repository, followed by the directory
+            # that holds it, which together make up the full path.
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            row.append(Gtk.Label(label=path.name))
+            label = Gtk.Label(label=str(path.parent), xalign=1)
+            label.add_css_class("slop-recent-path")
+            # Long paths give way rather than widen the whole window.
+            label.set_ellipsize(Pango.EllipsizeMode.START)
+            label.set_max_width_chars(1)
+            label.set_hexpand(True)
+            row.append(label)
+            listbox.append(row)
+        # Keep the list from growing past the window with many
+        # repositories, but let a short list stay short.
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_propagate_natural_height(True)
+        scroller.set_child(listbox)
+        frame = Gtk.Frame(child=scroller)
+        # Clip the rows to the rounded corners of the frame, which they
+        # would otherwise square off when hovered.
+        frame.set_overflow(Gtk.Overflow.HIDDEN)
+        return frame
 
     def _on_open_clicked(self, button):
         dialog = Gtk.FileDialog(modal=True, title="Open Repository")
@@ -75,16 +119,20 @@ class Window(Gtk.ApplicationWindow):
         except GLib.Error:
             # The user dismissed the dialog.
             return
+        self._open_repository(file.get_path())
+
+    def _open_repository(self, path):
         try:
-            self.repository = slop.Repository(file.get_path())
+            self.repository = slop.Repository(path)
         except RuntimeError as error:
-            # Leave the button be, the user can try another directory.
+            # Leave the open view be, the user can try another directory.
             return print(f"sloppie: {error}", file=sys.stderr)
-        # The open button goes away as the widgets built here take its
+        # The open view goes away as the widgets built here take its
         # place as the child of the window.
         self._init_repository()
 
     def _init_repository(self):
+        recent.add_repository(self.repository.root)
         self.config = slop.Config(self.repository)
         self._comment_sidebar = slop.CommentSidebar(self.repository)
         self._diff_view = slop.DiffView()
@@ -96,7 +144,6 @@ class Window(Gtk.ApplicationWindow):
         self._init_focus_shortcuts()
         self._init_tab_shortcuts()
         self._init_signal_handlers()
-        self.load_css()
         self.refresh()
 
     def _init_actions(self):

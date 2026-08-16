@@ -138,6 +138,9 @@ class FileSidebar(Gtk.Box):
             # Line up the baselines of the smaller labels with the name.
             child.set_valign(Gtk.Align.BASELINE_CENTER)
             box.append(child)
+        gesture = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
+        gesture.connect("pressed", self._on_item_left_click, item)
+        box.add_controller(gesture)
         gesture = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
         gesture.connect("pressed", self._on_item_right_click, item)
         box.add_controller(gesture)
@@ -164,6 +167,13 @@ class FileSidebar(Gtk.Box):
             # Hide rather than blank, so that the box spacing of an empty
             # label doesn't look like trailing space on the row.
             label.set_visible(bool(label.get_text()))
+
+    def _on_item_left_click(self, gesture, n_press, x, y, item):
+        # Clicking the file selected already changes no selection and so
+        # emits no notification, but should still bring up its diff. Rows
+        # are recycled, so the item's position is only known now.
+        if item.get_position() == self._selection.get_selected():
+            self.emit("change-selected", self._selection.get_selected_item(), True)
 
     def _on_item_right_click(self, gesture, n_press, x, y, item):
         # Act on the file clicked, not the one selected before. Rows are

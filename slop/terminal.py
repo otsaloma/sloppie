@@ -21,6 +21,7 @@ import sys
 from gi.repository import Gdk
 from gi.repository import GLib
 from gi.repository import GObject
+from gi.repository import Gtk
 from gi.repository import Pango
 from gi.repository import Vte
 from pathlib import Path
@@ -41,6 +42,7 @@ class Terminal(Vte.Terminal):
         self._pid = None
         self._init_properties()
         self._init_colors()
+        self._init_shortcuts()
         self.connect("child-exited", self._on_child_exited)
         self._spawn()
 
@@ -67,6 +69,32 @@ class Terminal(Vte.Terminal):
         self.set_scroll_unit_is_pixels(True)
         self.set_font(Pango.FontDescription.from_string(
             "Berkeley Standard Mono Medium 10"))
+
+    def _init_shortcuts(self):
+        # VTE has the clipboard API, but no keybindings for it, those
+        # being left to the application; only middle-click pasting the
+        # primary selection comes for free. Ctrl+Shift+C and Ctrl+Shift+V
+        # are what GNOME's terminals use. They need the capture phase to
+        # beat VTE's own key controller, which is in the bubble phase and
+        # would send them to the shell as a plain Ctrl+C, interrupting
+        # the running command, and Ctrl+V, readline's quoted-insert.
+        shortcuts = Gtk.ShortcutController(
+            propagation_phase=Gtk.PropagationPhase.CAPTURE)
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control><Shift>c"),
+            action=Gtk.CallbackAction.new(self._on_copy)))
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control><Shift>v"),
+            action=Gtk.CallbackAction.new(self._on_paste)))
+        self.add_controller(shortcuts)
+
+    def _on_copy(self, terminal, args):
+        self.copy_clipboard_format(Vte.Format.TEXT)
+        return True
+
+    def _on_paste(self, terminal, args):
+        self.paste_clipboard()
+        return True
 
     def _spawn(self):
         # Fall back to sh if the user has no shell in the passwd database.

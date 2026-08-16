@@ -16,9 +16,12 @@ on the focused terminal and forwards them to the shell, which stops
 propagation before the window's shortcuts get a turn. We therefore add
 the window's shortcut controllers in the capture phase, where they run
 before the terminal sees anything, meaning the shell never gets those
-keys. When adding a keybinding, always consider what it does in the
-shell; in readline and in the tty line discipline (`stty -a`); and avoid
-taking over anything important. Document what you do take below.
+keys. Copy and paste are the exception: being terminal actions, they are
+shortcuts on the terminal itself, in the capture phase too, VTE's own
+key controller being in the bubble phase. When adding a keybinding,
+always consider what it does in the shell; in readline and in the tty
+line discipline (`stty -a`); and avoid taking over anything important.
+Document what you do take below.
 
 | Keys          | Sloppie      | Shell action disabled                           |
 | ------------- | ------------ | ----------------------------------------------- |
@@ -32,7 +35,13 @@ taking over anything important. Document what you do take below.
 | Ctrl+U        | Unstage file | readline unix-line-discard: erase to line start |
 | Ctrl+W        | Close window | readline unix-word-rubout: erase preceding word |
 | F5            | Run command  | nothing in readline or tty; TUI apps lose F5    |
+| Shift+Ctrl+C  | Copy         | tty ^C: interrupt, plain Ctrl+C unharmed        |
+| Shift+Ctrl+V  | Paste        | readline quoted-insert, plain Ctrl+V unharmed   |
 | Shift+F5      | Set command  | same as F5: nothing in readline or tty          |
+
+When unsure what to do about VTE keybindings and other behaviour: check
+how does it work in Ptyxis. That's what I use as my regular terminal and
+we want this embedded VTE to work as similar as possible to Ptyxis.
 
 ## GTK Documentation
 

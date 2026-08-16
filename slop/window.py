@@ -158,8 +158,7 @@ class Window(Gtk.ApplicationWindow):
                 ("stage", "<Control>s", self._on_stage_activate),
                 ("unstage", "<Control>u", self._on_unstage_activate),
                 ("revert", None, self._on_revert_activate),
-                ("trash", None, self._on_trash_activate),
-                ("edit", "<Control>e", self._on_edit_activate)):
+                ("trash", None, self._on_trash_activate)):
             action = Gio.SimpleAction(name=name, enabled=False)
             action.connect("activate", callback)
             self.add_action(action)
@@ -167,6 +166,14 @@ class Window(Gtk.ApplicationWindow):
             shortcuts.add_shortcut(Gtk.Shortcut(
                 trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
                 action=Gtk.NamedAction.new(f"win.{name}")))
+        # Editing works without a file selected too, opening the whole
+        # repository in dired, from where any file can be reached.
+        action = Gio.SimpleAction(name="edit")
+        action.connect("activate", self._on_edit_activate)
+        self.add_action(action)
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control>e"),
+            action=Gtk.NamedAction.new("win.edit")))
         # Committing is always possible, since an amend can be done even
         # without staged changes. Ctrl+Enter needs the capture phase too,
         # the terminal otherwise passing it on to the shell as a plain Enter.
@@ -429,7 +436,6 @@ class Window(Gtk.ApplicationWindow):
         self.lookup_action("unstage").set_enabled(section == "staged")
         self.lookup_action("revert").set_enabled(section == "unstaged")
         self.lookup_action("trash").set_enabled(section == "untracked")
-        self.lookup_action("edit").set_enabled(section is not None)
         # A refresh reselects the file selected, which lands here just
         # like the user picking a file. Only the latter should send the
         # diff view back to the top, the former should stay put.
@@ -504,7 +510,11 @@ class Window(Gtk.ApplicationWindow):
                 self._toast.flash(f"Trashed file {change.name}")
 
     def _on_edit_activate(self, *args):
+        # Without a file selected, edit the repository root, which lands
+        # emacs in dired, from where any file can be opened.
         change = self._file_sidebar.get_selected_change()
+        if change is None:
+            return self._edit(str(self.repository.root))
         arguments = [str(self.repository.root / change.path)]
         if position := self._diff_view.get_position():
             # Emacs takes the position to visit as '+LINE:COLUMN'

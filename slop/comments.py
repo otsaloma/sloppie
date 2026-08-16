@@ -321,6 +321,25 @@ class CommentSidebar(Gtk.Box):
         self._write()
         self._update_cards()
 
+    def send_all_comments(self):
+        """Hand all the comments to the agent as one message."""
+        if not self._comments: return
+        # A rule between comments, so that the agent can tell where one
+        # ends and the next begins, comments being prose of any shape.
+        text = "\n---\n".join(x.serialize() for x in self._comments)
+        if not self.get_root().send_to_agent(text): return
+        for comment in self._comments:
+            comment.sent = True
+        self._write()
+        self._update_cards()
+
+    def delete_sent_comments(self):
+        """Remove the comments that have been sent to the agent."""
+        if not any(x.sent for x in self._comments): return
+        self._comments = [x for x in self._comments if not x.sent]
+        self._write()
+        self._update_cards()
+
     def new_comment(self):
         """Let the user write a comment on the changes as a whole."""
         dialog = CommentDialog(self.get_root(), self._branch)

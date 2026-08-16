@@ -137,6 +137,14 @@ class Window(Gtk.ApplicationWindow):
         shortcuts.add_shortcut(Gtk.Shortcut(
             trigger=Gtk.ShortcutTrigger.parse_string("<Control>m"),
             action=Gtk.NamedAction.new("win.add-comment")))
+        # The two bulk operations on the comments, which do nothing when
+        # there are no comments, or none of them sent, to operate on.
+        action = Gio.SimpleAction(name="send-comments")
+        action.connect("activate", self._on_send_comments_activate)
+        self.add_action(action)
+        action = Gio.SimpleAction(name="delete-sent-comments")
+        action.connect("activate", self._on_delete_sent_comments_activate)
+        self.add_action(action)
         # Running takes the capture phase too, so that F5 works the same
         # with the focus in a terminal as anywhere else in the window.
         action = Gio.SimpleAction(name="run")
@@ -272,10 +280,20 @@ class Window(Gtk.ApplicationWindow):
                                        menu_model=menu,
                                        primary=True))
         # Packed after the menu, which puts it left of the menu, the
-        # header bar filling its end from the right inwards.
-        header.pack_end(Gtk.Button(action_name="win.add-comment",
+        # header bar filling its end from the right inwards. The three
+        # comment buttons are joined into one group, they being the ones
+        # that belong together and act on the comment sidebar.
+        comments = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        comments.append(Gtk.Button(action_name="win.add-comment",
                                    icon_name="chat-message-new-symbolic",
                                    tooltip_text="Add Comment (Ctrl+M)"))
+        comments.append(Gtk.Button(action_name="win.send-comments",
+                                   icon_name="send-to-symbolic",
+                                   tooltip_text="Send All Comments"))
+        comments.append(Gtk.Button(action_name="win.delete-sent-comments",
+                                   icon_name="user-trash-symbolic",
+                                   tooltip_text="Delete Sent Comments"))
+        header.pack_end(comments)
         header.pack_end(Gtk.Button(action_name="win.run",
                                    icon_name="media-playback-start-symbolic",
                                    tooltip_text="Run (F5) / Configure (Shift-F5)"))
@@ -457,6 +475,12 @@ class Window(Gtk.ApplicationWindow):
 
     def _on_add_comment_activate(self, *args):
         self._comment_sidebar.new_comment()
+
+    def _on_send_comments_activate(self, *args):
+        self._comment_sidebar.send_all_comments()
+
+    def _on_delete_sent_comments_activate(self, *args):
+        self._comment_sidebar.delete_sent_comments()
 
     def send_to_agent(self, text):
         """Paste `text` into the agent running in the first terminal."""

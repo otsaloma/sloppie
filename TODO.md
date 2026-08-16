@@ -1,8 +1,7 @@
 # TODO
 
-- Push all comments to coding agent and dim comments
-- Add button to delete all dimmed comments
 - Click line number to add comment with path + hunk
+- Review copy-paste keybindings in terminal
 - Add build + install to Makefile (see gaupol)
 - Write README.md
 - Add with error_dialog(...) handler for any failing git operations

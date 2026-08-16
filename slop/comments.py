@@ -36,16 +36,20 @@ class Comment:
 
 class CommentDialog(Gtk.Window):
 
-    """Text of a new review comment."""
+    """Text of a new or existing review comment."""
 
     __gsignals__ = {
-        "added": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
+        "deleted": (GObject.SignalFlags.RUN_LAST, None, ()),
+        "saved": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
     }
 
-    def __init__(self, parent, branch):
+    def __init__(self, parent, branch, text=""):
         GObject.GObject.__init__(self)
         self._branch = branch
-        self._button = Gtk.Button(label="_Add", use_underline=True)
+        # Text given means an existing comment being edited.
+        self._text = text
+        self._button = Gtk.Button(label="_Save" if text else "_Add",
+                                  use_underline=True)
         self._view = Gtk.TextView()
         self._init_properties(parent)
         self._init_widgets()
@@ -56,7 +60,8 @@ class CommentDialog(Gtk.Window):
         self.set_modal(True)
         # Comments are written against a branch, so say which one, that
         # being what tells apart one set of comments from another.
-        self.set_title(f"Add Comment on {self._branch}")
+        verb = "Edit" if self._text else "Add"
+        self.set_title(f"{verb} Comment on {self._branch}")
         self.set_transient_for(parent)
 
     def _init_widgets(self):
@@ -74,6 +79,12 @@ class CommentDialog(Gtk.Window):
         cancel = Gtk.Button(label="_Cancel", use_underline=True)
         cancel.connect("clicked", lambda *args: self.close())
         header.pack_start(cancel)
+        if self._text:
+            # Only an existing comment is there to be deleted.
+            delete = Gtk.Button(icon_name="user-trash-symbolic",
+                                tooltip_text="Delete Comment")
+            delete.connect("clicked", lambda *args: self._delete())
+            header.pack_start(delete)
         self._button.add_css_class("suggested-action")
         header.pack_end(self._button)
         self.set_titlebar(header)
@@ -86,6 +97,7 @@ class CommentDialog(Gtk.Window):
         # Comments are prose, not code, so they are not to be broken
         # into lines by hand, but wrapped to whatever width there is.
         self._view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self._view.get_buffer().set_text(self._text)
         scroller = Gtk.ScrolledWindow()
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroller.set_child(self._view)
@@ -95,7 +107,7 @@ class CommentDialog(Gtk.Window):
         self.set_focus(self._view)
 
     def _init_signal_handlers(self):
-        self._button.connect("clicked", lambda *args: self._add())
+        self._button.connect("clicked", lambda *args: self._save())
         buffer = self._view.get_buffer()
         buffer.connect("changed", lambda *args: self._update_button())
         self._update_button()
@@ -105,7 +117,7 @@ class CommentDialog(Gtk.Window):
             propagation_phase=Gtk.PropagationPhase.CAPTURE)
         shortcuts.add_shortcut(Gtk.Shortcut(
             trigger=Gtk.ShortcutTrigger.parse_string("<Control>Return"),
-            action=Gtk.CallbackAction.new(lambda *args: self._add() or True)))
+            action=Gtk.CallbackAction.new(lambda *args: self._save() or True)))
         shortcuts.add_shortcut(Gtk.Shortcut(
             trigger=Gtk.ShortcutTrigger.parse_string("Escape"),
             action=Gtk.NamedAction.new("window.close")))
@@ -119,12 +131,30 @@ class CommentDialog(Gtk.Window):
         # An empty comment is no comment at all.
         self._button.set_sensitive(bool(self._get_text()))
 
-    def _add(self):
+    def _save(self):
         # Reachable with nothing typed by way of Ctrl+Enter, which,
         # unlike the button, cannot be made insensitive.
         if not self._get_text(): return
-        self.emit("added", self._get_text())
+        self.emit("saved", self._get_text())
         self.close()
+
+    def _delete(self):
+        """Have the comment deleted if confirmed."""
+        # A comment can be a lot of writing and there's no undo.
+        dialog = Gtk.AlertDialog(modal=True,
+                                 message="Delete comment?",
+                                 detail="The comment will be permanently lost.",
+                                 buttons=["Cancel", "Delete"],
+                                 cancel_button=0,
+                                 default_button=0)
+
+        def on_done(dialog, result):
+            # Having cancel_button set, dismissing gives us that
+            # instead of an error.
+            if dialog.choose_finish(result) != 1: return
+            self.emit("deleted")
+            self.close()
+        dialog.choose(self, None, on_done)
 
 class CommentSidebar(Gtk.Box):
 
@@ -190,30 +220,53 @@ class CommentSidebar(Gtk.Box):
             # The comment is still shown, it just won't survive the session.
             print(f"sloppie: {error}", file=sys.stderr)
 
+    def _init_card(self, comment):
+        """Return a card showing `comment`."""
+        # A card is a summary, not a document. A pasted error log
+        # would push everything else out of view, so cut it short
+        # here. The comment itself is kept and handed on in full.
+        text = comment.text
+        if len(text) > 400:
+            text = text[:400].rstrip() + "..."
+        label = Gtk.Label(label=text, xalign=0)
+        label.set_wrap(True)
+        label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        # Ask for no width at all, so that the text wraps to the
+        # width of the sidebar instead of dictating it.
+        label.set_max_width_chars(1)
+        # A button, so that the whole card opens the comment for editing
+        # and deleting, that being all there is to do with a card.
+        card = Gtk.Button(child=label)
+        card.add_css_class("monospace")
+        card.add_css_class("slop-comment-card")
+        card.connect("clicked", lambda *args: self._edit_comment(comment))
+        return card
+
     def _update_cards(self):
         """Rebuild the cards to match the comments."""
         while child := self._box.get_first_child():
             self._box.remove(child)
         for comment in self._comments:
-            # A card is a summary, not a document. A pasted error log
-            # would push everything else out of view, so cut it short
-            # here. The comment itself is kept and handed on in full.
-            text = comment.text
-            if len(text) > 400:
-                text = text[:400].rstrip() + "..."
-            label = Gtk.Label(label=text, xalign=0)
-            label.set_wrap(True)
-            label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
-            # Ask for no width at all, so that the text wraps to the
-            # width of the sidebar instead of dictating it.
-            label.set_max_width_chars(1)
-            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            card.add_css_class("monospace")
-            card.add_css_class("slop-comment-card")
-            card.append(label)
-            self._box.append(card)
+            self._box.append(self._init_card(comment))
         self._scroller.set_visible(bool(self._comments))
         self._placeholder.set_visible(not self._comments)
+
+    def _edit_comment(self, comment):
+        """Let the user rewrite or delete `comment`."""
+        dialog = CommentDialog(self.get_root(), self._branch, comment.text)
+
+        def on_saved(dialog, text):
+            comment.text = text
+            self._write()
+            self._update_cards()
+
+        def on_deleted(dialog):
+            self._comments.remove(comment)
+            self._write()
+            self._update_cards()
+        dialog.connect("saved", on_saved)
+        dialog.connect("deleted", on_deleted)
+        dialog.present()
 
     def add_comment(self, text, path=None, hunk=None):
         """Add a comment on `path` and `hunk`, saving it to file."""

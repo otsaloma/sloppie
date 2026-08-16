@@ -460,7 +460,7 @@ class Window(Gtk.ApplicationWindow):
         dialog = slop.CommentDialog(self, self._branch)
         # The comment lands in the sidebar in plain sight, so it needs
         # no toast to say that it was added.
-        dialog.connect("added", lambda dialog, text:
+        dialog.connect("saved", lambda dialog, text:
                        self._comment_sidebar.add_comment(text))
         dialog.present()
 

@@ -1,8 +1,5 @@
 # TODO
 
-- Allow creating/changing branch
-- Allow editing existing comment
-- Allow deleting existing comment
 - Push single comment to coding agent and dim comment
 - Push all comments to coding agent and dim comments
 - Add button to delete all dimmed comments

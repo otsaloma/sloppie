@@ -16,7 +16,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import os
-import sys
+import slop
 
 from gi.repository import Gdk
 from gi.repository import GLib
@@ -130,8 +130,10 @@ class Terminal(Vte.Terminal):
     def _on_spawn_done(self, terminal, pid, error, *args):
         self._pid = pid if error is None else None
         if error is None: return
-        # Without a shell the terminal is a blank box, so say why.
-        print(f"sloppie: {error.message}", file=sys.stderr)
+        # Without a shell the terminal is a blank box, so say why. The
+        # window is there by now, this being called from the main loop,
+        # long after the terminal was made and put in it.
+        slop.util.show_error(self.get_root(), "Failed to start the shell", error.message)
 
     def get_foreground_commands(self):
         """Return the names of the commands running, empty if at the prompt."""
@@ -143,7 +145,7 @@ class Terminal(Vte.Terminal):
         if (pty := self.get_pty()) is None: return []
         try:
             group = os.tcgetpgrp(pty.get_fd())
-        except OSError:
+        except Exception:
             return []
         if group == self._pid: return []
         # The whole group, not merely its leader, a command often being
@@ -161,7 +163,7 @@ class Terminal(Vte.Terminal):
                 stat = (path / "stat").read_text("utf-8")
                 if int(stat[stat.rindex(")") + 2:].split()[2]) != group: continue
                 commands.append((path / "comm").read_text("utf-8").strip())
-            except (OSError, ValueError):
+            except Exception:
                 # A process can be gone by the time we look at it.
                 continue
         return commands

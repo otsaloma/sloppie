@@ -15,8 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import json
-import sys
+import slop
 import time
 
 from gi.repository import GLib
@@ -28,20 +27,13 @@ PATH = Path(GLib.get_user_data_dir()) / "sloppie" / "recent.json"
 
 def _read():
     """Return recorded repositories as items, most recent first."""
-    try:
-        if not PATH.exists(): return []
-        items = json.loads(PATH.read_text("utf-8"))
-        # Forget repositories not opened in the last two weeks, the list
-        # being of what one is working on, not of everything ever opened.
-        cutoff = time.time() - 14 * 86400
-        items = [x for x in items if x["time"] > cutoff]
-        items.sort(key=lambda x: x["time"], reverse=True)
-        return items
-    except (KeyError, OSError, TypeError, ValueError) as error:
-        # Rather start over with an empty list than fail to open a
-        # repository on account of the list of recent ones.
-        print(f"sloppie: {error}", file=sys.stderr)
-        return []
+    items = slop.util.read_json(PATH, [])
+    # Forget repositories not opened in the last two weeks, the list
+    # being of what one is working on, not of everything ever opened.
+    cutoff = time.time() - 14 * 86400
+    items = [x for x in items if x.get("time", 0) > cutoff]
+    items.sort(key=lambda x: x["time"], reverse=True)
+    return items
 
 def list_repositories():
     """Return the paths of recently opened repositories, most recent first."""
@@ -57,9 +49,4 @@ def add_repository(path):
     if Path(path).is_relative_to("/tmp"): return
     items = [x for x in _read() if x["path"] != str(path)]
     items.insert(0, {"path": str(path), "time": round(time.time())})
-    try:
-        PATH.parent.mkdir(parents=True, exist_ok=True)
-        PATH.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", "utf-8")
-    except OSError as error:
-        # The repository is missing from the list, nothing more.
-        print(f"sloppie: {error}", file=sys.stderr)
+    slop.util.write_json(items, PATH)

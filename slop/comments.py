@@ -15,10 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import json
 import slop
-import sys
 
+from contextlib import suppress
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
@@ -246,31 +245,21 @@ class CommentSidebar(Gtk.Box):
 
     def _read(self):
         """Return the comments of the current branch, read from file."""
-        path = self._get_file()
-        try:
-            if not path.exists(): return []
-            items = json.loads(path.read_text("utf-8"))
-        except (OSError, ValueError) as error:
-            # Rather show no comments than fail to open the repository.
-            print(f"sloppie: {error}", file=sys.stderr)
-            return []
+        items = slop.util.read_json(self._get_file(), [])
         return [Comment(x["text"], x.get("path"), x.get("hunk"), x.get("sent", False))
                 for x in items]
 
     def _write(self):
         """Write the comments of the current branch to file."""
         path = self._get_file()
-        try:
-            if not self._comments:
-                # Leave no file behind once the last comment is gone.
-                return path.unlink(missing_ok=True)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            items = [{"text": x.text, "path": x.path, "hunk": x.hunk, "sent": x.sent}
-                     for x in self._comments]
-            path.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", "utf-8")
-        except OSError as error:
-            # The comment is still shown, it just won't survive the session.
-            print(f"sloppie: {error}", file=sys.stderr)
+        if not self._comments:
+            # Leave no file behind once the last comment is gone.
+            with suppress(Exception):
+                path.unlink(missing_ok=True)
+            return
+        items = [{"text": x.text, "path": x.path, "hunk": x.hunk, "sent": x.sent}
+                 for x in self._comments]
+        slop.util.write_json(items, path)
 
     def _init_card(self, comment):
         """Return a card showing `comment`."""

@@ -42,7 +42,7 @@ class CommitDialog(Gtk.Window):
         self._typed = ""
         try:
             self._staged = repository.has_staged_changes()
-        except RuntimeError as error:
+        except Exception as error:
             # Let the commit fail and explain itself, rather than block
             # it here on the grounds of a check that didn't work. No
             # dialog either, this dialog not being presented yet and
@@ -136,7 +136,7 @@ class CommitDialog(Gtk.Window):
         if self._amend.get_active():
             try:
                 message = self.repository.get_last_message()
-            except RuntimeError as error:
+            except Exception as error:
                 # Nothing to amend before the first commit is made.
                 slop.util.show_error(self, "Failed to read the previous commit", error)
                 return self._amend.set_active(False)
@@ -151,7 +151,7 @@ class CommitDialog(Gtk.Window):
         try:
             self.repository.commit(self._get_message(),
                                    amend=self._amend.get_active())
-        except RuntimeError as error:
+        except Exception as error:
             # Leave the dialog be, so that the message is not lost.
             return slop.util.show_error(self, "Failed to commit", error)
         self.emit("committed")

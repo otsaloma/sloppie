@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import json
 import sys
 
 from gi.repository import GLib
@@ -45,6 +46,23 @@ def confirm(parent, message, detail, label):
     dialog.choose(parent, None, on_done)
     loop.run()
     return response == 1
+
+def read_json(path, default):
+    """Return the contents of the JSON file `path`, or `default`."""
+    try:
+        if not path.exists(): return default
+        data = json.loads(path.read_text("utf-8"))
+        if type(data) is not type(default):
+            # A file of the wrong shape is no better than no file, a
+            # list where a dict is expected only failing later, on the
+            # first use the caller makes of what it got.
+            raise ValueError(f"{path}: not a JSON {type(default).__name__}")
+        return data
+    except Exception as error:
+        # None of what we keep as JSON is essential, so rather fall back
+        # on the default than fail to do the thing the file was read for.
+        print(f"sloppie: {error}", file=sys.stderr)
+        return default
 
 def show_error(parent, message, error):
     """Show `error` under `message` in a dialog on top of `parent`."""
@@ -103,3 +121,13 @@ def show_error(parent, message, error):
     dialog.set_focus(close)
     error_dialog = dialog
     dialog.present()
+
+def write_json(data, path):
+    """Write `data` to the JSON file `path`."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    except Exception as error:
+        # Whatever the data was written for can go on without it,
+        # only nothing of it will survive the session.
+        print(f"sloppie: {error}", file=sys.stderr)

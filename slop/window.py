@@ -117,7 +117,7 @@ class Window(Gtk.ApplicationWindow):
     def _on_folder_selected(self, dialog, result):
         try:
             file = dialog.select_folder_finish(result)
-        except GLib.Error:
+        except Exception:
             # The user dismissed the dialog.
             return
         self._open_repository(file.get_path())
@@ -125,7 +125,7 @@ class Window(Gtk.ApplicationWindow):
     def _open_repository(self, path):
         try:
             self.repository = slop.Repository(path)
-        except RuntimeError as error:
+        except Exception as error:
             # Leave the open view be, the user can try another directory.
             return slop.util.show_error(self, f"Failed to open {path}", error)
         # The open view goes away as the widgets built here take its
@@ -448,7 +448,7 @@ class Window(Gtk.ApplicationWindow):
             return self._diff_view.set_diff([])
         try:
             text = self.repository.get_diff(change)
-        except RuntimeError as error:
+        except Exception as error:
             slop.util.show_error(self, f"Failed to diff {change.name}", error)
             return self._diff_view.set_diff([])
         self._diff_view.set_diff(parse_diff(text), keep_position=same)
@@ -458,7 +458,7 @@ class Window(Gtk.ApplicationWindow):
         success = True
         try:
             operation(change)
-        except (GLib.Error, RuntimeError) as error:
+        except Exception as error:
             slop.util.show_error(self, message, error)
             success = False
         self.refresh()
@@ -510,8 +510,8 @@ class Window(Gtk.ApplicationWindow):
             # Give emacs a session of its own, so that it neither dies
             # along with sloppie nor takes signals meant for sloppie.
             subprocess.Popen(["emacs", *arguments], start_new_session=True)
-        except OSError as error:
-            print(f"sloppie: {error}", file=sys.stderr)
+        except Exception as error:
+            slop.util.show_error(self, "Failed to start emacs", error)
 
     def _on_commit_activate(self, *args):
         dialog = slop.CommitDialog(self, self.repository)
@@ -575,8 +575,8 @@ class Window(Gtk.ApplicationWindow):
             subprocess.Popen(["sh", "-c", command],
                              cwd=str(self.repository.root),
                              start_new_session=True)
-        except OSError as error:
-            return print(f"sloppie: {error}", file=sys.stderr)
+        except Exception as error:
+            return slop.util.show_error(self, f"Failed to run {command}", error)
         # The command runs out of sight, so say that it was started.
         self._toast.flash(f"Running {command}")
 
@@ -652,7 +652,7 @@ class Window(Gtk.ApplicationWindow):
     def _on_poll_timeout(self):
         try:
             fingerprint = self.repository.get_fingerprint()
-        except RuntimeError as error:
+        except Exception as error:
             # No dialog here, nor anywhere else reached from this poll:
             # a repository gone bad would keep raising the same error
             # every few seconds, for as long as the window is open.
@@ -670,7 +670,7 @@ class Window(Gtk.ApplicationWindow):
             self._fingerprint = self.repository.get_fingerprint()
             changes = self.repository.list_changes()
             branch = self.repository.get_branch()
-        except RuntimeError as error:
+        except Exception as error:
             # Reached from the poll too, hence no dialog, see above.
             print(f"sloppie: {error}", file=sys.stderr)
             return

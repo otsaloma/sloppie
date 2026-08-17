@@ -231,7 +231,7 @@ class Repository:
             # where the old path follows as one more field.
             status, path = fields[i][:2], fields[i][3:]
             i += 2 if status[0] in ("R", "C") else 1
-            with suppress(OSError):
+            with suppress(Exception):
                 times.append((self.root / path).stat().st_mtime_ns)
         return output, times
 

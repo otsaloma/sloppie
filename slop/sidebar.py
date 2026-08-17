@@ -19,6 +19,7 @@ import slop
 
 from gi.repository import Gdk
 from gi.repository import Gio
+from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Graphene
 from gi.repository import Gtk
@@ -118,14 +119,12 @@ class FileSidebar(Gtk.Box):
         status.set_width_chars(1)
         status.add_css_class("monospace")
         status.add_css_class("slop-file-status")
+        # The directory is part of the name label, not one of its own, so
+        # that it's the part that goes first when the row runs out of room.
         name = Gtk.Label()
         name.set_xalign(0)
-        name.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
-        directory = Gtk.Label()
-        directory.set_xalign(0)
-        directory.set_hexpand(True)
-        directory.set_ellipsize(Pango.EllipsizeMode.START)
-        directory.add_css_class("slop-file-directory")
+        name.set_hexpand(True)
+        name.set_ellipsize(Pango.EllipsizeMode.END)
         added = Gtk.Label()
         added.set_xalign(1)
         added.add_css_class("monospace")
@@ -134,7 +133,7 @@ class FileSidebar(Gtk.Box):
         removed.set_xalign(1)
         removed.add_css_class("monospace")
         removed.add_css_class("slop-file-removed")
-        for child in (status, name, directory, added, removed):
+        for child in (status, name, added, removed):
             # Line up the baselines of the smaller labels with the name.
             child.set_valign(Gtk.Align.BASELINE_CENTER)
             box.append(child)
@@ -151,13 +150,15 @@ class FileSidebar(Gtk.Box):
         box = item.get_child()
         status = box.get_first_child()
         name = status.get_next_sibling()
-        directory = name.get_next_sibling()
-        added = directory.get_next_sibling()
+        added = name.get_next_sibling()
         removed = added.get_next_sibling()
         status.set_text(change.status)
-        name.set_text(change.name)
-        name.set_tooltip_text(change.path)
-        directory.set_text(change.directory)
+        markup = GLib.markup_escape_text(change.name)
+        if change.directory:
+            markup += '\u2002<span size="smaller" alpha="50%">{}</span>'.format(
+                GLib.markup_escape_text(change.directory))
+        name.set_markup(markup)
+        box.set_tooltip_text(change.path)
         # Binary files have no line counts to show. Zeros are left out too,
         # they'd only be noise on a row that has nothing added or removed.
         added.set_text(f"+{change.added}" if change.added else "")

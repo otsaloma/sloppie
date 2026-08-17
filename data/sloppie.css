@@ -37,11 +37,6 @@ stackswitcher > button.text-button.slop-narrow-tab {
   opacity: 0.5;
 }
 
-.slop-file-directory {
-  font-size: smaller;
-  opacity: 0.5;
-}
-
 .slop-file-added, .slop-file-removed {
   font-size: smaller;
 }

@@ -74,6 +74,9 @@ class Terminal(Vte.Terminal):
         # by a tenth of the terminal height, which sends a nudge flying.
         self.set_enable_fallback_scrolling(False)
         self.set_scroll_unit_is_pixels(True)
+        self.set_scrollback_lines(10000)
+        self.set_scroll_on_keystroke(True)
+        self.set_scroll_on_output(False)
         self.set_font(Pango.FontDescription.from_string(
             "Berkeley Standard Mono Medium 10"))
 

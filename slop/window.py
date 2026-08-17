@@ -127,7 +127,7 @@ class Window(Gtk.ApplicationWindow):
             self.repository = slop.Repository(path)
         except RuntimeError as error:
             # Leave the open view be, the user can try another directory.
-            return print(f"sloppie: {error}", file=sys.stderr)
+            return slop.util.show_error(self, f"Failed to open {path}", error)
         # The open view goes away as the widgets built here take its
         # place as the child of the window.
         self._init_repository()
@@ -449,65 +449,47 @@ class Window(Gtk.ApplicationWindow):
         try:
             text = self.repository.get_diff(change)
         except RuntimeError as error:
-            print(f"sloppie: {error}", file=sys.stderr)
+            slop.util.show_error(self, f"Failed to diff {change.name}", error)
             return self._diff_view.set_diff([])
         self._diff_view.set_diff(parse_diff(text), keep_position=same)
 
-    def _apply(self, operation, change):
+    def _apply(self, operation, change, message):
         """Run `operation` on `change`, reload and return ``True`` if done."""
         success = True
         try:
             operation(change)
         except (GLib.Error, RuntimeError) as error:
-            print(f"sloppie: {error}", file=sys.stderr)
+            slop.util.show_error(self, message, error)
             success = False
         self.refresh()
         return success
 
-    def _confirm(self, message, detail, label):
-        """Return ``True`` if the user chooses `label`."""
-        dialog = Gtk.AlertDialog(modal=True,
-                                 message=message,
-                                 detail=detail,
-                                 buttons=["Cancel", label],
-                                 cancel_button=0,
-                                 default_button=0)
-
-        # AlertDialog only has an asynchronous API, so run a nested main
-        # loop to be able to return the response to the caller. Having
-        # cancel_button set, dismissing gives us that instead of an error.
-        loop = GLib.MainLoop()
-        response = 0
-        def on_done(dialog, result):
-            nonlocal response
-            response = dialog.choose_finish(result)
-            loop.quit()
-        dialog.choose(self, None, on_done)
-        loop.run()
-        return response == 1
-
     def _on_stage_activate(self, *args):
-        self._apply(self.repository.stage,
-                    self._file_sidebar.get_selected_change())
+        change = self._file_sidebar.get_selected_change()
+        self._apply(self.repository.stage, change,
+                    f"Failed to stage {change.name}")
 
     def _on_unstage_activate(self, *args):
-        self._apply(self.repository.unstage,
-                    self._file_sidebar.get_selected_change())
+        change = self._file_sidebar.get_selected_change()
+        self._apply(self.repository.unstage, change,
+                    f"Failed to unstage {change.name}")
 
     def _on_revert_activate(self, *args):
         change = self._file_sidebar.get_selected_change()
-        if self._confirm(f"Revert changes in {change.name}?",
-                         "The changes will be permanently lost.",
-                         "Revert"):
-            if self._apply(self.repository.revert, change):
+        if slop.util.confirm(self, f"Revert changes in {change.name}?",
+                             "The changes will be permanently lost.",
+                             "Revert"):
+            if self._apply(self.repository.revert, change,
+                           f"Failed to revert {change.name}"):
                 self._toast.flash(f"Reverted file {change.name}")
 
     def _on_trash_activate(self, *args):
         change = self._file_sidebar.get_selected_change()
-        if self._confirm(f"Move {change.name} to the trash?",
-                         "The file can be restored from the trash.",
-                         "Trash"):
-            if self._apply(self.repository.trash, change):
+        if slop.util.confirm(self, f"Move {change.name} to the trash?",
+                             "The file can be restored from the trash.",
+                             "Trash"):
+            if self._apply(self.repository.trash, change,
+                           f"Failed to trash {change.name}"):
                 self._toast.flash(f"Trashed file {change.name}")
 
     def _on_edit_activate(self, *args):
@@ -671,6 +653,9 @@ class Window(Gtk.ApplicationWindow):
         try:
             fingerprint = self.repository.get_fingerprint()
         except RuntimeError as error:
+            # No dialog here, nor anywhere else reached from this poll:
+            # a repository gone bad would keep raising the same error
+            # every few seconds, for as long as the window is open.
             print(f"sloppie: {error}", file=sys.stderr)
             return GLib.SOURCE_CONTINUE
         if fingerprint != self._fingerprint:
@@ -686,6 +671,7 @@ class Window(Gtk.ApplicationWindow):
             changes = self.repository.list_changes()
             branch = self.repository.get_branch()
         except RuntimeError as error:
+            # Reached from the poll too, hence no dialog, see above.
             print(f"sloppie: {error}", file=sys.stderr)
             return
         self._branch = branch

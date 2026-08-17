@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import slop
 import sys
 
 from gi.repository import GObject
@@ -43,7 +44,9 @@ class CommitDialog(Gtk.Window):
             self._staged = repository.has_staged_changes()
         except RuntimeError as error:
             # Let the commit fail and explain itself, rather than block
-            # it here on the grounds of a check that didn't work.
+            # it here on the grounds of a check that didn't work. No
+            # dialog either, this dialog not being presented yet and
+            # thus about to cover anything shown on top of the window.
             print(f"sloppie: {error}", file=sys.stderr)
             self._staged = True
         self._init_properties(parent)
@@ -135,7 +138,7 @@ class CommitDialog(Gtk.Window):
                 message = self.repository.get_last_message()
             except RuntimeError as error:
                 # Nothing to amend before the first commit is made.
-                print(f"sloppie: {error}", file=sys.stderr)
+                slop.util.show_error(self, "Failed to read the previous commit", error)
                 return self._amend.set_active(False)
             self._typed = self._get_message()
             buffer.set_text(message)
@@ -150,6 +153,6 @@ class CommitDialog(Gtk.Window):
                                    amend=self._amend.get_active())
         except RuntimeError as error:
             # Leave the dialog be, so that the message is not lost.
-            return print(f"sloppie: {error}", file=sys.stderr)
+            return slop.util.show_error(self, "Failed to commit", error)
         self.emit("committed")
         self.close()

@@ -33,6 +33,7 @@ from pathlib import Path
 # Default to the source directory, overwritten when installing.
 DATA_DIR = Path(__file__).parent.parent.joinpath("data").resolve()
 
+from slop import util
 from slop.config import Config
 from slop.git import DiffLine
 from slop.git import FileChange

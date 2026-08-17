@@ -16,6 +16,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import json
+import slop
 import sys
 
 from gi.repository import GObject
@@ -200,20 +201,11 @@ class CommentDialog(Gtk.Window):
     def _delete(self):
         """Have the comment deleted if confirmed."""
         # A comment can be a lot of writing and there's no undo.
-        dialog = Gtk.AlertDialog(modal=True,
-                                 message="Delete comment?",
-                                 detail="The comment will be permanently lost.",
-                                 buttons=["Cancel", "Delete"],
-                                 cancel_button=0,
-                                 default_button=0)
-
-        def on_done(dialog, result):
-            # Having cancel_button set, dismissing gives us that
-            # instead of an error.
-            if dialog.choose_finish(result) != 1: return
-            self.emit("deleted")
-            self.close()
-        dialog.choose(self, None, on_done)
+        if not slop.util.confirm(self, "Delete comment?",
+                                 "The comment will be permanently lost.",
+                                 "Delete"): return
+        self.emit("deleted")
+        self.close()
 
 class CommentSidebar(Gtk.Box):
 

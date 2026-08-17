@@ -83,8 +83,12 @@ class TestWindow(slop.test.TestCase):
             sidebar._selection.set_selected(i)
             for j, line in enumerate(view._lines):
                 if line.new is None: continue
-                buffer.place_cursor(buffer.get_iter_at_line_offset(j, 1)[1])
-                assert view.get_position() == (line.new, 1)
+                # Column one is the first character of the code, which
+                # follows the diff marker and the space after it, both
+                # of which the cursor reports as column one too.
+                for offset in (1, 2):
+                    buffer.place_cursor(buffer.get_iter_at_line_offset(j, offset)[1])
+                    assert view.get_position() == (line.new, 1)
 
     def test_diff_view_line_numbers_match(self):
         sidebar = self.window._file_sidebar

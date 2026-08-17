@@ -206,11 +206,12 @@ class DiffView(GtkSource.View):
     def _tag(self, line, spans, name):
         buffer = self.get_buffer()
         for start, end in spans:
-            # The spans skipped the leading marker, the buffer has it.
+            # The spans skipped the leading marker, the buffer has it
+            # along with the space that follows it.
             buffer.apply_tag_by_name(
                 name,
-                buffer.get_iter_at_line_offset(line, start + 1)[1],
-                buffer.get_iter_at_line_offset(line, end + 1)[1])
+                buffer.get_iter_at_line_offset(line, start + 2)[1],
+                buffer.get_iter_at_line_offset(line, end + 2)[1])
 
     def get_position(self):
         """Return the one-based (line, column) in the new file at the cursor."""
@@ -223,9 +224,10 @@ class DiffView(GtkSource.View):
                  buffer.get_iter_at_mark(buffer.get_insert()))
         line = start.get_line()
         if line < len(self._lines) and self._lines[line].new is not None:
-            # Column one is the first character after the diff marker,
-            # which is where the cursor lands if it is on the marker.
-            return self._lines[line].new, max(start.get_line_offset(), 1)
+            # Column one is the first character after the diff marker
+            # and the space after it, which is where the cursor lands
+            # if it is on either of the two.
+            return self._lines[line].new, max(start.get_line_offset() - 1, 1)
         # Removed lines and headers exist only in the diff, so fall back
         # on the closest line that the new file has, the one after it
         # being where a removal took place.
@@ -251,7 +253,12 @@ class DiffView(GtkSource.View):
     def set_diff(self, lines, path=None, keep_position=False):
         """Show the parsed diff `lines` of `path`, `keep_position` to not scroll to the top."""
         buffer = self.get_buffer()
-        text = "\n".join(x.text for x in lines)
+        # A space after the marker of a changed line, so that the code
+        # is not crowded against it, and one on a context line too, to
+        # keep the code of all lines in the same column.
+        text = "\n".join(x.text[:1] + " " + x.text[1:]
+                         if x.kind in ("context", "added", "removed") else x.text
+                         for x in lines)
         if keep_position and text == buffer.get_text(*buffer.get_bounds(), True):
             # Nothing to redo, and redoing it would only lose the position.
             return

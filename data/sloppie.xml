@@ -1,11 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<style-scheme id="sloppie" name="Sloppie" version="1.0" parent-scheme="Adwaita">
+<style-scheme id="sloppie" name="Sloppie" version="1.0">
   <author>Osmo Salomaa</author>
   <description>Sloppie style</description>
-  <style name="text" foreground="#323232"/>
+  <style name="text"         foreground="#323232" background="#ffffff"/>
+  <style name="line-numbers" foreground="#bbbbbb" background="#ffffff"/>
+  <!-- Syntax highlighting -->
+  <style name="def:builtin"          foreground="#663cb9"/>
+  <style name="def:comment"          foreground="#59636e"/>
+  <style name="def:function"         foreground="#663cb9"/>
+  <style name="def:keyword"          foreground="#ce2732"/>
+  <style name="def:preprocessor"     foreground="#ce2732"/>
+  <style name="def:special-constant" foreground="#0d51ad"/>
+  <style name="def:string"           foreground="#123369"/>
+  <style name="def:type"             foreground="#0d51ad"/>
+  <!-- Diff header -->
+  <style name="slop:hunk" foreground="#59636e" line-background="#dcf4ff"/>
+  <style name="slop:meta" foreground="#59636e"/>
   <!-- Diff lines -->
-  <style name="diff:added-line"   line-background="#d9fbe0"/>
-  <style name="diff:removed-line" line-background="#ffeae8"/>
+  <style name="slop:added-line"   line-background="#d9fbe0"/>
+  <style name="slop:removed-line" line-background="#ffeae8"/>
   <!-- Diff words -->
   <style name="slop:refine-added"   background="#abedba"/>
   <style name="slop:refine-removed" background="#ffcdca"/>

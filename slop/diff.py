@@ -19,9 +19,11 @@ import difflib
 import re
 import slop
 
+from gi.repository import Gio
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import GtkSource
+from gi.repository import Pango
 from itertools import accumulate
 
 def find_spans(a, b):
@@ -82,6 +84,7 @@ class DiffView(GtkSource.View):
         self._new_gutter = LineNumberGutter("new")
         self._init_properties()
         self._init_gutter()
+        self._init_tags()
 
     def _init_gutter(self):
         gutter = self.get_gutter(Gtk.TextWindowType.LEFT)
@@ -98,24 +101,79 @@ class DiffView(GtkSource.View):
         self.set_highlight_current_line(False)
         self.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         buffer = self.get_buffer()
-        language = GtkSource.LanguageManager.get_default().get_language("diff")
-        buffer.set_language(language)
+        # The language is that of the file shown, set along with a diff,
+        # so that the code is highlighted as the code it is.
         buffer.set_highlight_syntax(True)
         buffer.set_highlight_matching_brackets(False)
-        # The diff language spec tells added and removed lines apart,
-        # our style scheme tints them a whole line wide.
         manager = GtkSource.StyleSchemeManager.get_default()
         manager.append_search_path(str(slop.DATA_DIR))
-        scheme = manager.get_scheme("sloppie")
-        buffer.set_style_scheme(scheme)
-        # The word level tints are ours to apply, so they need tags. The
-        # scheme sets these as character backgrounds, which is a
-        # different property than the whole line paragraph background
-        # that the highlighting engine sets, so the two stack.
+        buffer.set_style_scheme(manager.get_scheme("sloppie"))
+
+    def _init_tags(self):
+        """Create the tags that mark up the diff itself."""
+        # The highlighting engine is busy with the file's own language,
+        # which knows nothing of diffs, so everything that says what the
+        # diff says is ours to apply as tags. Tags made here, before the
+        # engine has any of its own, take precedence over the engine's.
+        buffer = self.get_buffer()
+        scheme = buffer.get_style_scheme()
         for kind in ("added", "removed"):
+            style = scheme.get_style(f"slop:{kind}-line")
+            buffer.create_tag(f"{kind}-line",
+                              paragraph_background=style.get_property("line-background"))
+            # A character background, which is a different property than
+            # the line background above, so that the two stack.
             style = scheme.get_style(f"slop:refine-{kind}")
             buffer.create_tag(f"refine-{kind}",
                               background=style.get_property("background"))
+        # The lines of the diff itself are not code, so undo the bold
+        # and italic that the language would give the words in them.
+        style = scheme.get_style("slop:hunk")
+        buffer.create_tag("hunk",
+                          foreground=style.get_property("foreground"),
+                          paragraph_background=style.get_property("line-background"),
+                          weight=Pango.Weight.NORMAL,
+                          style=Pango.Style.NORMAL)
+        style = scheme.get_style("slop:meta")
+        buffer.create_tag("meta",
+                          foreground=style.get_property("foreground"),
+                          weight=Pango.Weight.NORMAL,
+                          style=Pango.Style.NORMAL)
+
+    def _set_language(self, path):
+        """Highlight the code as the language that `path` is written in."""
+        language = None
+        if path is not None:
+            # The content type is what identifies a file that goes by
+            # name rather than by extension, such as a Makefile.
+            content_type = Gio.content_type_guess(path, None)[0]
+            manager = GtkSource.LanguageManager.get_default()
+            language = manager.guess_language(path, content_type)
+        self.get_buffer().set_language(language)
+
+    def _tint(self, lines):
+        """Tint whole lines by what they are in the diff."""
+        buffer = self.get_buffer()
+        tags = {
+            "added": "added-line",
+            "hunk": "hunk",
+            "meta": "meta",
+            "nonewline": "meta",
+            "removed": "removed-line",
+        }
+        i = 0
+        while i < len(lines):
+            # Tint a run of lines of the same kind in one go, there
+            # being far fewer runs than there are lines.
+            j = i
+            while j < len(lines) and lines[j].kind == lines[i].kind: j += 1
+            if name := tags.get(lines[i].kind):
+                # Ending at the start of the line after the run leaves
+                # that line untouched, tags covering no character of it.
+                buffer.apply_tag_by_name(name,
+                                         buffer.get_iter_at_line(i)[1],
+                                         buffer.get_iter_at_line(j)[1])
+            i = j
 
     def _refine(self, lines):
         """Tint the words that differ between paired changed lines."""
@@ -184,8 +242,8 @@ class DiffView(GtkSource.View):
             end.forward_to_line_end()
         return buffer.get_text(start, end, False)
 
-    def set_diff(self, lines, keep_position=False):
-        """Show the parsed diff `lines`, `keep_position` to not scroll to the top."""
+    def set_diff(self, lines, path=None, keep_position=False):
+        """Show the parsed diff `lines` of `path`, `keep_position` to not scroll to the top."""
         buffer = self.get_buffer()
         text = "\n".join(x.text for x in lines)
         if keep_position and text == buffer.get_text(*buffer.get_bounds(), True):
@@ -193,12 +251,16 @@ class DiffView(GtkSource.View):
             return
         top = (self.get_line_at_y(self.get_visible_rect().y)[0].get_line()
                if keep_position else 0)
+        # Set the language first, so that the text is highlighted as it
+        # is inserted rather than all over again right after.
+        self._set_language(path)
         buffer.set_text(text)
         self._lines = lines
         # Nothing here can be edited, but the cursor still marks the
         # place that the edit action opens in the editor. With no diff
         # there's no place either, only a caret blinking in the void.
         self.set_cursor_visible(bool(lines))
+        self._tint(lines)
         self._refine(lines)
         for gutter in (self._old_gutter, self._new_gutter):
             gutter.set_lines(lines)

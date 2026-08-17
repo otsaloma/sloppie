@@ -451,7 +451,7 @@ class Window(Gtk.ApplicationWindow):
         except Exception as error:
             slop.util.show_error(self, f"Failed to diff {change.name}", error)
             return self._diff_view.set_diff([])
-        self._diff_view.set_diff(parse_diff(text), keep_position=same)
+        self._diff_view.set_diff(parse_diff(text), change.path, keep_position=same)
 
     def _apply(self, operation, change, message):
         """Run `operation` on `change`, reload and return ``True`` if done."""

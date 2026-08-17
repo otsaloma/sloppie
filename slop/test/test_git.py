@@ -37,7 +37,7 @@ class TestParseDiff(slop.test.TestCase):
             ("context", 12, 22),
         ]
 
-    def test_header_is_meta(self):
+    def test_header_is_dropped(self):
         lines = parse_diff("\n".join((
             "diff --git a/x b/x",
             "index 1234567..89abcde 100644",
@@ -47,7 +47,41 @@ class TestParseDiff(slop.test.TestCase):
             "-a",
             "+b",
         )))
-        assert [x.kind for x in lines[:4]] == ["meta"] * 4
+        assert [x.kind for x in lines] == ["hunk", "removed", "added"]
+
+    def test_mode_change_is_kept(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/x",
+            "old mode 100644",
+            "new mode 100755",
+        )))
+        assert [x.text for x in lines] == ["old mode 100644", "new mode 100755"]
+
+    def test_rename_is_kept(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/y",
+            "similarity index 100%",
+            "rename from x",
+            "rename to y",
+        )))
+        assert [x.text for x in lines] == ["rename from x", "rename to y"]
+
+    def test_second_file_header_is_dropped(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/x",
+            "--- a/x",
+            "+++ b/x",
+            "@@ -1 +1 @@",
+            "-a",
+            "+b",
+            "diff --git a/y b/y",
+            "--- a/y",
+            "+++ b/y",
+            "@@ -1 +1 @@",
+            "-c",
+            "+d",
+        )))
+        assert [x.kind for x in lines] == ["hunk", "removed", "added"] * 2
 
     def test_no_newline_at_end_of_file(self):
         lines = parse_diff("\n".join((
@@ -66,7 +100,7 @@ class TestParseDiff(slop.test.TestCase):
             "index 1234567..89abcde 100644",
             "Binary files a/x and b/x differ",
         )))
-        assert [x.kind for x in lines] == ["meta"] * 3
+        assert [x.text for x in lines] == ["Binary files a/x and b/x differ"]
 
     def test_empty(self):
         assert parse_diff("") == []

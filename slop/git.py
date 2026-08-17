@@ -96,7 +96,13 @@ def parse_diff(text):
     while lines and not lines[-1].text:
         # Drop the trailing newline of the diff itself.
         lines.pop()
-    return lines
+    # Of the header, keep only what is not already said by the sidebar
+    # or repeated by the hunks. Mode changes and renames are kept, being
+    # all that a change with no hunks at all has to show.
+    noise = ("diff ", "index ", "--- ", "+++ ", "new file mode ",
+             "deleted file mode ", "similarity index ", "dissimilarity index ")
+    return [x for x in lines
+            if x.kind != "meta" or not x.text.startswith(noise)]
 
 class Repository:
 

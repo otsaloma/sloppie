@@ -26,6 +26,7 @@ from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
 from slop import recent
+from slop.git import DiffLine
 from slop.git import parse_diff
 from slop.git import SECTIONS
 
@@ -451,6 +452,12 @@ class Window(Gtk.ApplicationWindow):
         except Exception as error:
             slop.util.show_error(self, f"Failed to diff {change.name}", error)
             return self._diff_view.set_diff([])
+        if len(text) > 2 * 1024 * 1024:
+            # Rendering takes a second or so per megabyte of diff, and
+            # a diff this big is not going to be read line by line
+            # anyway, so say that instead of freezing to render it.
+            return self._diff_view.set_diff(
+                [DiffLine("meta", None, None, "Large diffs are not rendered")])
         self._diff_view.set_diff(parse_diff(text), change.path, keep_position=same)
 
     def _apply(self, operation, change, message):

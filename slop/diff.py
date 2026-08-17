@@ -192,7 +192,13 @@ class DiffView(GtkSource.View):
             if j - i == k - j:
                 for old, new in zip(range(i, j), range(j, k)):
                     # Skip the leading '-' and '+', which always differ.
-                    oldspans, newspans = find_spans(lines[old].text[1:], lines[new].text[1:])
+                    oldtext, newtext = lines[old].text[1:], lines[new].text[1:]
+                    if max(len(oldtext), len(newtext)) > 10000:
+                        # Comparing is quadratic in the length of a line
+                        # and a pair of lines this long is minified code
+                        # or data, where words mean nothing anyway.
+                        continue
+                    oldspans, newspans = find_spans(oldtext, newtext)
                     self._tag(old, oldspans, "refine-removed")
                     self._tag(new, newspans, "refine-added")
             i = k

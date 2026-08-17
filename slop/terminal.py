@@ -40,11 +40,18 @@ class Terminal(Vte.Terminal):
         GObject.GObject.__init__(self)
         self._directory = directory
         self._pid = None
+        self._spawned = False
         self._init_properties()
         self._init_colors()
         self._init_shortcuts()
         self.connect("child-exited", self._on_child_exited)
-        self._spawn()
+        # Wait for the terminal to be shown before starting a shell. A
+        # stack maps only the page on screen, so this is the first switch
+        # to this terminal. Starting all the shells at once would run a
+        # repository's direnv initialization — a cloud login, say — three
+        # times in parallel, whereas one at a time lets the later shells
+        # find the work of the first one already done.
+        self.connect("map", self._on_map)
 
     def _init_colors(self):
         # The light variant of the OTS palette, as used in Ptyxis. Only
@@ -96,7 +103,14 @@ class Terminal(Vte.Terminal):
         self.paste_clipboard()
         return True
 
+    def _on_map(self, terminal):
+        # Switching back and forth maps the terminal again and again,
+        # but only the first time is there no shell yet.
+        if self._spawned: return
+        self._spawn()
+
     def _spawn(self):
+        self._spawned = True
         # Fall back to sh if the user has no shell in the passwd database.
         shell = Vte.get_user_shell() or "/bin/sh"
         # Note that pygobject keeps child_setup_data, unlike the

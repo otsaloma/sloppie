@@ -356,7 +356,7 @@ class Window(Gtk.ApplicationWindow):
         header.pack_end(comments)
         header.pack_end(Gtk.Button(action_name="win.run",
                                    icon_name="media-playback-start-symbolic",
-                                   tooltip_text="Run (F5) / Configure (Shift-F5)"))
+                                   tooltip_text="Run (F5) / Configure (Shift+F5)"))
         self.set_titlebar(header)
         diff_scroller = Gtk.ScrolledWindow()
         diff_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)

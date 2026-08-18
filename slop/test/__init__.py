@@ -22,11 +22,11 @@ import tempfile
 
 from pathlib import Path
 
-def new_repository():
-    """Create a scratch repository with a change of each kind."""
+def new_repository(fixture="minimal"):
+    """Create a scratch repository from the named fixture script."""
     root = Path(tempfile.mkdtemp(prefix="sloppie-"))
     atexit.register(shutil.rmtree, root, ignore_errors=True)
-    script = Path(__file__).parents[2] / "tools" / "fixture-minimal.sh"
+    script = Path(__file__).parents[2] / "tools" / f"fixture-{fixture}.sh"
     subprocess.run([str(script), str(root)], check=True)
     return root
 

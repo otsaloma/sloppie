@@ -348,6 +348,63 @@ class TestRepository(slop.test.TestCase):
             return
         raise AssertionError("expected RuntimeError")
 
+class TestConflict(slop.test.TestCase):
+
+    def setup_method(self, method):
+        self.root = slop.test.new_repository("conflict")
+        self.repository = slop.Repository(self.root)
+        self.changes = self.repository.list_changes()
+
+    def get_change(self, section, path):
+        for change in self.changes[section]:
+            if change.path == path:
+                return change
+        raise AssertionError(f"{path} not found in {section}")
+
+    def test_sections(self):
+        assert [x.path for x in self.changes["staged"]] == [
+            "added-by-other.txt", "conflict.txt"]
+        assert [x.path for x in self.changes["unstaged"]] == ["conflict.txt"]
+        assert not self.changes["untracked"]
+
+    def test_unmerged_status(self):
+        # An unmerged file is listed as modified as well, which says
+        # nothing of the conflict and must not be what shows.
+        assert self.get_change("staged", "conflict.txt").status == "U"
+        assert self.get_change("unstaged", "conflict.txt").status == "U"
+
+    def test_merged_file_is_staged(self):
+        # The half of the merge that went cleanly is staged as usual.
+        assert self.get_change("staged", "added-by-other.txt").status == "A"
+
+    def test_staged_diff_is_described(self):
+        # There is no diff to show of an unmerged file, so the reason
+        # has to be said in its place, rather than showing nothing.
+        change = self.get_change("staged", "conflict.txt")
+        lines = parse_diff(self.repository.get_diff(change))
+        assert [x.text for x in lines] == ["Unmerged file with conflicts to resolve"]
+
+    def test_unstaged_diff_shows_the_whole_file(self):
+        # A conflict comes as a combined diff, which has two columns of
+        # markers rather than one, and has the conflict markers among
+        # its lines. All of the file is to be there and nothing else.
+        change = self.get_change("unstaged", "conflict.txt")
+        lines = parse_diff(self.repository.get_diff(change))
+        assert lines[0].kind == "hunk"
+        assert lines[0].text.startswith("@@@ ")
+        assert [x.text[2:] for x in lines[1:]] == (
+            self.root / "conflict.txt").read_text().rstrip("\n").split("\n")
+
+    def test_commit_is_refused(self):
+        # git will not commit with a path left unmerged, which needs to
+        # arrive as an error rather than as a commit that never was.
+        try:
+            self.repository.commit("Merge other")
+        except RuntimeError as error:
+            assert "unmerged files" in str(error)
+            return
+        raise AssertionError("expected RuntimeError")
+
 class TestGetFingerprint(slop.test.TestCase):
 
     def setup_method(self, method):

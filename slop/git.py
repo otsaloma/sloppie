@@ -89,6 +89,11 @@ def describe_header(texts, has_hunks):
         # and the first three the type of the file, which git only ever
         # reports as a deletion and an addition, not as a mode change.
         descriptions.append(f"Permissions changed from {old[-3:]} to {new[-3:]}")
+    if any(x.startswith("* Unmerged path ") for x in texts):
+        # A file left unmerged by a conflict has no diff against the
+        # index at all, git saying only that it is unmerged, which
+        # would leave nothing to show of the file.
+        descriptions.append("Unmerged file with conflicts to resolve")
     if any(x.startswith("Binary files ") for x in texts):
         descriptions.append("Binary file " + (
             "added" if value("new file mode ") is not None else
@@ -204,7 +209,10 @@ class Repository:
 
     def _parse_name_status(self, output):
         # Records are 'status\0path\0', except for renames and copies,
-        # where the status is followed by the old and the new path.
+        # where the status is followed by the old and the new path. A
+        # file left unmerged by a conflict is listed twice, first as U
+        # and then as M, of which only the U says that it has conflicts,
+        # so keep the first status given for a path rather than the last.
         statuses = {}
         fields = [x for x in output.split("\0") if x]
         i = 0
@@ -212,10 +220,10 @@ class Repository:
             status = fields[i]
             i += 1
             if status[0] in ("R", "C"):
-                statuses[fields[i+1]] = (status[0], fields[i])
+                statuses.setdefault(fields[i+1], (status[0], fields[i]))
                 i += 2
             else:
-                statuses[fields[i]] = (status[0], None)
+                statuses.setdefault(fields[i], (status[0], None))
                 i += 1
         return statuses
 

@@ -2,6 +2,7 @@
 
 .monospace {
   font-family: "Berkeley Standard Mono", "SF Mono", monospace;
+  font-size: 12px;
 }
 
 .slop-header-title label {

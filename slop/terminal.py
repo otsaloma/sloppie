@@ -141,6 +141,13 @@ class Terminal(Vte.Terminal):
         # long after the terminal was made and put in it.
         slop.util.show_error(self.get_root(), "Failed to start the shell", error.message)
 
+    def get_selection(self):
+        """Return the text selected in the terminal, or ``None`` if none."""
+        # VTE keeps the selection after the terminal loses focus, so
+        # this outlives the click that took focus to a header bar button.
+        if not self.get_has_selection(): return None
+        return self.get_text_selected(Vte.Format.TEXT)
+
     def get_foreground_commands(self):
         """Return the names of the commands running, empty if at the prompt."""
         # VTE's shell termprops would tell us this, but only with shell

@@ -41,10 +41,13 @@ class Comment:
         """Return the comment as text to be handed to an agent."""
         parts = []
         if self.path is not None:
-            # A hunk always comes with the path of the file it's from.
             parts.append(f"In `{self.path}` regarding:"
                          if self.hunk is not None else
                          f"In `{self.path}`:")
+        elif self.hunk is not None:
+            # A hunk from the terminal has no file it came from, so say
+            # at least that the block below is what the comment is on.
+            parts.append("Regarding:")
         if self.hunk is not None:
             parts.append("```\n" + self.hunk.strip("\n") + "\n```")
         parts.append(self.text)

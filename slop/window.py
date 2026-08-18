@@ -526,6 +526,14 @@ class Window(Gtk.ApplicationWindow):
         dialog.present()
 
     def _on_add_comment_activate(self, *args):
+        # A selection in the terminal on screen means a comment on that
+        # piece of the agent's output, which belongs to no file. The
+        # terminal being what the user is reading, it wins over whatever
+        # was left selected in the diff view.
+        child = self._stack.get_visible_child().get_child()
+        if isinstance(child, slop.Terminal):
+            if (hunk := child.get_selection()) is not None:
+                return self._comment_sidebar.new_comment(hunk=hunk)
         # A selection in the diff view means a comment on that piece of
         # code, in the file whose diff is shown. Without one the comment
         # is on the changes as a whole.

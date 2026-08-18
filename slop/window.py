@@ -374,7 +374,7 @@ class Window(Gtk.ApplicationWindow):
             title = "_Terminal" if i == 1 else str(i)
             page = self._stack.add_titled(scroller, f"terminal-{i}", title)
             page.set_use_underline(True)
-            terminal.connect("bell", self._on_terminal_bell, page)
+            terminal.connect("bell", self._on_terminal_bell, page, i)
         switcher.set_stack(self._stack)
         # The switcher builds a button per page in the order added, but
         # hands out no reference to them, so walk its children instead.
@@ -617,14 +617,33 @@ class Window(Gtk.ApplicationWindow):
         self._stack.set_visible_child_name(names[index % len(names)])
         self._focus_stack_view()
 
-    def _on_terminal_bell(self, terminal, page):
+    def _on_terminal_bell(self, terminal, page, index):
         # A bell means that whatever runs in the terminal wants
         # attention: an agent done with its turn, a build finished. The
         # switcher marks the tab with a dot, but only as long as it's not
         # the tab on screen, so don't mark the one being looked at, which
         # would leave a mark to appear on switching away from it.
-        if page.get_child() is self._stack.get_visible_child(): return
-        page.set_needs_attention(True)
+        if page.get_child() is not self._stack.get_visible_child():
+            page.set_needs_attention(True)
+        # Sitting at this very terminal, the user has seen it all
+        # happen, so skip the notification rather than pop one up on top
+        # of what it's about.
+        if self.is_active() and self.get_focus() is terminal: return
+        # The dot is no use when the window is behind others, so also
+        # send a desktop notification. It carries our application id,
+        # which is how GNOME shows it under Sloppie's name and icon and,
+        # when clicked, raises a Sloppie window. Include the repository
+        # in the id, so that a second bell replaces the notification of
+        # the first, but another window's bells keep their own.
+        notification = Gio.Notification.new(self.repository.root.name)
+        notification.set_body("Agent wants something")
+        # The application id gets us a small icon in the header of the
+        # notification, an icon of our own gets the big one beside the
+        # text, the same as notify-send's --icon. Give it the same icon,
+        # there being nothing better to say than that this is Sloppie.
+        notification.set_icon(Gio.ThemedIcon.new("io.otsaloma.sloppie"))
+        self.get_application().send_notification(
+            f"{self.repository.root}-terminal-{index}", notification)
 
     def _show_diff_view(self):
         # Focus belongs to the sidebar here, so block the handler that

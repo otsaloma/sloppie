@@ -118,10 +118,13 @@ class Terminal(Vte.Terminal):
         shell = Vte.get_user_shell() or "/bin/sh"
         # Note that pygobject keeps child_setup_data, unlike the
         # documented signature, making this eleven arguments, not ten.
+        # The environment given is added to the one inherited, so
+        # SLOPPIE tells whatever runs here that it's running in Sloppie
+        # and can leave desktop notifications to us — a bell is enough.
         self.spawn_async(Vte.PtyFlags.DEFAULT,
                          str(self._directory),
                          [shell],
-                         None,
+                         ["SLOPPIE=1"],
                          GLib.SpawnFlags.DEFAULT,
                          None,
                          None,

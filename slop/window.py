@@ -530,9 +530,9 @@ class Window(Gtk.ApplicationWindow):
         # piece of the agent's output, which belongs to no file. The
         # terminal being what the user is reading, it wins over whatever
         # was left selected in the diff view.
-        child = self._stack.get_visible_child().get_child()
-        if isinstance(child, slop.Terminal):
-            if (hunk := child.get_selection()) is not None:
+        view = self._get_shown_view()
+        if isinstance(view, slop.Terminal):
+            if (hunk := view.get_selection()) is not None:
                 return self._comment_sidebar.new_comment(hunk=hunk)
         # A selection in the diff view means a comment on that piece of
         # code, in the file whose diff is shown. Without one the comment
@@ -659,9 +659,14 @@ class Window(Gtk.ApplicationWindow):
         with GObject.signal_handler_block(self._stack, self._stack_handler):
             self._stack.set_visible_child_name("diff")
 
+    def _get_shown_view(self):
+        """Return the view shown in the stack, the diff view or a terminal."""
+        # Each page of the stack is a scroller wrapping the actual view.
+        return self._stack.get_visible_child().get_child()
+
     def _focus_stack_view(self):
         # Focus the view itself, not the scroller around it.
-        self._stack.get_visible_child().get_child().grab_focus()
+        self._get_shown_view().grab_focus()
 
     def _on_wrap_lines_change_state(self, action, state):
         action.set_state(state)

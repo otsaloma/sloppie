@@ -170,10 +170,14 @@ class Repository:
 
     def _git(self, *args, cwd=None, ok_codes=(0,)):
         # Suppress external diff drivers and color, which would both
-        # render the output unparseable. Everything else is left to
-        # the user's git configuration, so that what we show matches
-        # what 'git diff' shows in a terminal.
-        command = ["git", "--no-pager", "-c", "color.ui=never", *args]
+        # render the output unparseable. 'color.ui' is only the default
+        # that the per-command 'color.diff' overrides, so deny that too,
+        # diff being the one command here whose output it would color.
+        # Everything else is left to the user's git configuration, so
+        # that what we show matches what 'git diff' shows in a terminal.
+        command = ["git", "--no-pager",
+                   "-c", "color.ui=never",
+                   "-c", "color.diff=never", *args]
         process = subprocess.run(command,
                                  cwd=str(cwd or self.root),
                                  stdout=subprocess.PIPE,

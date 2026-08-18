@@ -64,6 +64,37 @@ class FileChange(GObject.Object):
         parent = str(Path(self.path).parent)
         return "" if parent == "." else parent
 
+def describe_header(texts, has_hunks):
+    """Return plain language descriptions of diff header lines `texts`."""
+    def value(prefix):
+        for text in texts:
+            if text.startswith(prefix):
+                return text[len(prefix):]
+        return None
+    descriptions = []
+    if (old := value("rename from ")) and (new := value("rename to ")):
+        descriptions.append(f"Renamed from {old} to {new}")
+    if (old := value("copy from ")) and (new := value("copy to ")):
+        descriptions.append(f"Copied from {old} to {new}")
+    if (old := value("old mode ")) and (new := value("new mode ")):
+        # Of the six digits of a mode, the last three are the permissions
+        # and the first three the type of the file, which git only ever
+        # reports as a deletion and an addition, not as a mode change.
+        descriptions.append(f"Permissions changed from {old[-3:]} to {new[-3:]}")
+    if any(x.startswith("Binary files ") for x in texts):
+        descriptions.append("Binary file " + (
+            "added" if value("new file mode ") is not None else
+            "deleted" if value("deleted file mode ") is not None else
+            "changed"))
+    elif not has_hunks:
+        # A text file with no hunks at all has no lines to show, which
+        # only an empty file, added or deleted, can be.
+        if value("new file mode ") is not None:
+            descriptions.append("Empty file added")
+        if value("deleted file mode ") is not None:
+            descriptions.append("Empty file deleted")
+    return descriptions
+
 def parse_diff(text):
     """Parse unified diff `text` into a list of `DiffLine`."""
     lines = []
@@ -96,13 +127,23 @@ def parse_diff(text):
     while lines and not lines[-1].text:
         # Drop the trailing newline of the diff itself.
         lines.pop()
-    # Of the header, keep only what is not already said by the sidebar
-    # or repeated by the hunks. Mode changes and renames are kept, being
-    # all that a change with no hunks at all has to show.
-    noise = ("diff ", "index ", "--- ", "+++ ", "new file mode ",
-             "deleted file mode ", "similarity index ", "dissimilarity index ")
-    return [x for x in lines
-            if x.kind != "meta" or not x.text.startswith(noise)]
+    # Replace each file's header with a description of what it says that
+    # the sidebar and the hunks don't, the rest of it being either noise
+    # or repetition, and none of it written for a human to read.
+    output = []
+    i = 0
+    while i < len(lines):
+        if lines[i].kind != "meta":
+            output.append(lines[i])
+            i += 1
+            continue
+        j = i
+        while j < len(lines) and lines[j].kind == "meta": j += 1
+        has_hunks = j < len(lines) and lines[j].kind == "hunk"
+        for text in describe_header([x.text for x in lines[i:j]], has_hunks):
+            output.append(DiffLine("meta", None, None, text))
+        i = j
+    return output
 
 class Repository:
 

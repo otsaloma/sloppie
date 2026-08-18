@@ -49,22 +49,82 @@ class TestParseDiff(slop.test.TestCase):
         )))
         assert [x.kind for x in lines] == ["hunk", "removed", "added"]
 
-    def test_mode_change_is_kept(self):
+    def test_mode_change_is_described(self):
         lines = parse_diff("\n".join((
             "diff --git a/x b/x",
             "old mode 100644",
             "new mode 100755",
         )))
-        assert [x.text for x in lines] == ["old mode 100644", "new mode 100755"]
+        assert [x.text for x in lines] == ["Permissions changed from 644 to 755"]
 
-    def test_rename_is_kept(self):
+    def test_rename_is_described(self):
         lines = parse_diff("\n".join((
             "diff --git a/x b/y",
             "similarity index 100%",
             "rename from x",
             "rename to y",
         )))
-        assert [x.text for x in lines] == ["rename from x", "rename to y"]
+        assert [x.text for x in lines] == ["Renamed from x to y"]
+
+    def test_rename_with_changes_is_described(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/y",
+            "similarity index 90%",
+            "rename from x",
+            "rename to y",
+            "old mode 100644",
+            "new mode 100755",
+            "index 1234567..89abcde",
+            "--- a/x",
+            "+++ b/y",
+            "@@ -1 +1 @@",
+            "-a",
+            "+b",
+        )))
+        assert [x.text for x in lines] == [
+            "Renamed from x to y",
+            "Permissions changed from 644 to 755",
+            "@@ -1 +1 @@",
+            "-a",
+            "+b",
+        ]
+
+    def test_copy_is_described(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/y",
+            "similarity index 100%",
+            "copy from x",
+            "copy to y",
+        )))
+        assert [x.text for x in lines] == ["Copied from x to y"]
+
+    def test_empty_file_added_is_described(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/x",
+            "new file mode 100644",
+            "index 0000000..e69de29",
+        )))
+        assert [x.text for x in lines] == ["Empty file added"]
+
+    def test_empty_file_deleted_is_described(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/x",
+            "deleted file mode 100644",
+            "index e69de29..0000000",
+        )))
+        assert [x.text for x in lines] == ["Empty file deleted"]
+
+    def test_file_added_is_not_described(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/x",
+            "new file mode 100644",
+            "index 0000000..89abcde",
+            "--- /dev/null",
+            "+++ b/x",
+            "@@ -0,0 +1 @@",
+            "+a",
+        )))
+        assert [x.text for x in lines] == ["@@ -0,0 +1 @@", "+a"]
 
     def test_second_file_header_is_dropped(self):
         lines = parse_diff("\n".join((
@@ -94,13 +154,31 @@ class TestParseDiff(slop.test.TestCase):
         assert lines[-1].old is None
         assert lines[-1].new is None
 
-    def test_binary(self):
+    def test_binary_changed(self):
         lines = parse_diff("\n".join((
             "diff --git a/x b/x",
             "index 1234567..89abcde 100644",
             "Binary files a/x and b/x differ",
         )))
-        assert [x.text for x in lines] == ["Binary files a/x and b/x differ"]
+        assert [x.text for x in lines] == ["Binary file changed"]
+
+    def test_binary_added(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/x",
+            "new file mode 100644",
+            "index 0000000..89abcde",
+            "Binary files /dev/null and b/x differ",
+        )))
+        assert [x.text for x in lines] == ["Binary file added"]
+
+    def test_binary_deleted(self):
+        lines = parse_diff("\n".join((
+            "diff --git a/x b/x",
+            "deleted file mode 100644",
+            "index 1234567..0000000",
+            "Binary files a/x and /dev/null differ",
+        )))
+        assert [x.text for x in lines] == ["Binary file deleted"]
 
     def test_empty(self):
         assert parse_diff("") == []

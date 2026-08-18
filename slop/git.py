@@ -64,6 +64,14 @@ class FileChange(GObject.Object):
         parent = str(Path(self.path).parent)
         return "" if parent == "." else parent
 
+def sort_key(path):
+    """Return a sort key that puts directories first, ignoring case."""
+    # Compare component by component, so that at each level of the tree
+    # the components that have something below them come first. Case is
+    # only a tie-breaker, to keep the order of equal names stable.
+    *directories, name = path.split("/")
+    return [(0, x.casefold(), x) for x in directories] + [(1, name.casefold(), name)]
+
 def describe_header(texts, has_hunks):
     """Return plain language descriptions of diff header lines `texts`."""
     def value(prefix):
@@ -224,12 +232,12 @@ class Repository:
         stats = self._parse_numstat(self._diff(*args, "--numstat", "-z"))
         statuses = self._parse_name_status(self._diff(*args, "--name-status", "-z"))
         return [FileChange(section, path, *statuses.get(path, ("M", None)), *stats[path])
-                for path in sorted(stats)]
+                for path in sorted(stats, key=sort_key)]
 
     def _list_untracked_changes(self):
         changes = []
         output = self._git("ls-files", "--others", "--exclude-standard", "-z")
-        for path in sorted(x for x in output.split("\0") if x):
+        for path in sorted((x for x in output.split("\0") if x), key=sort_key):
             # There is no cheaper way to get a line count for an
             # untracked file that agrees with git on what is binary.
             stats = self._parse_numstat(self._diff(

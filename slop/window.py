@@ -650,6 +650,13 @@ class Window(Gtk.ApplicationWindow):
         # text, the same as notify-send's --icon. Give it the same icon,
         # there being nothing better to say than that this is Sloppie.
         notification.set_icon(Gio.ThemedIcon.new("io.otsaloma.sloppie"))
+        # Of the four priorities, only two do anything in GNOME Shell:
+        # HIGH differs from NORMAL by queue order alone, LOW is never
+        # shown as a banner. URGENT is the one that gets through Do Not
+        # Disturb and a fullscreen window, at the price of a banner that
+        # stays on screen until dismissed, there being no way to have
+        # one that is both urgent and transient.
+        notification.set_priority(Gio.NotificationPriority.URGENT)
         self.get_application().send_notification(
             f"{self.repository.root}-terminal-{index}", notification)
 

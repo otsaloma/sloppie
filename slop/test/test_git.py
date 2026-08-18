@@ -202,10 +202,11 @@ class TestRepository(slop.test.TestCase):
 
     def test_staged(self):
         assert sorted(x.path for x in self.changes["staged"]) == [
-            "binary.bin", "modified.txt", "renamed-to.txt"]
+            "binary.bin", "deleted-staged.txt", "modified.txt", "renamed-to.txt"]
 
     def test_unstaged(self):
-        assert [x.path for x in self.changes["unstaged"]] == ["modified.txt"]
+        assert [x.path for x in self.changes["unstaged"]] == [
+            "deleted-unstaged.txt", "modified.txt"]
 
     def test_untracked(self):
         assert [x.path for x in self.changes["untracked"]] == ["untracked.txt"]
@@ -229,6 +230,51 @@ class TestRepository(slop.test.TestCase):
         change = self.get_change("staged", "modified.txt")
         assert (change.added, change.removed) == (2, 1)
 
+    def test_deletion_status(self):
+        assert self.get_change("staged", "deleted-staged.txt").status == "D"
+        assert self.get_change("unstaged", "deleted-unstaged.txt").status == "D"
+
+    def test_deletion_counts(self):
+        change = self.get_change("staged", "deleted-staged.txt")
+        assert (change.added, change.removed) == (0, 2)
+
+    def test_deletion_diff_is_all_removals(self):
+        # A deletion has hunks like any other change, so its header says
+        # nothing that the hunks don't and is dropped whole.
+        change = self.get_change("staged", "deleted-staged.txt")
+        lines = parse_diff(self.repository.get_diff(change))
+        assert [x.kind for x in lines] == ["hunk", "removed", "removed"]
+        assert [x.text for x in lines[1:]] == ["-gone", "-away"]
+
+    def test_deletion_line_numbers(self):
+        # Nothing of a deleted file is left to number as new.
+        change = self.get_change("unstaged", "deleted-unstaged.txt")
+        lines = parse_diff(self.repository.get_diff(change))
+        assert [(x.old, x.new) for x in lines[1:]] == [(1, None), (2, None)]
+
+    def test_stage_deletion(self):
+        # 'git add' of a path that is gone stages its removal.
+        self.repository.stage(self.get_change("unstaged", "deleted-unstaged.txt"))
+        changes = self.repository.list_changes()
+        assert "deleted-unstaged.txt" not in [x.path for x in changes["unstaged"]]
+        assert [x.status for x in changes["staged"]
+                if x.path == "deleted-unstaged.txt"] == ["D"]
+
+    def test_unstage_deletion(self):
+        # The file stays gone, only the deletion leaves the index.
+        self.repository.unstage(self.get_change("staged", "deleted-staged.txt"))
+        changes = self.repository.list_changes()
+        assert "deleted-staged.txt" not in [x.path for x in changes["staged"]]
+        assert [x.status for x in changes["unstaged"]
+                if x.path == "deleted-staged.txt"] == ["D"]
+
+    def test_revert_deletion(self):
+        # Reverting a deletion is the one revert that brings a file back.
+        self.repository.revert(self.get_change("unstaged", "deleted-unstaged.txt"))
+        assert (self.root / "deleted-unstaged.txt").read_text() == "gone\ntoo\n"
+        assert "deleted-unstaged.txt" not in [
+            x.path for x in self.repository.list_changes()["unstaged"]]
+
     def test_untracked_diff_is_an_addition(self):
         change = self.get_change("untracked", "untracked.txt")
         lines = parse_diff(self.repository.get_diff(change))
@@ -242,7 +288,8 @@ class TestRepository(slop.test.TestCase):
 
     def test_stage(self):
         self.repository.stage(self.get_change("unstaged", "modified.txt"))
-        assert not self.repository.list_changes()["unstaged"]
+        assert "modified.txt" not in [
+            x.path for x in self.repository.list_changes()["unstaged"]]
 
     def test_stage_untracked(self):
         self.repository.stage(self.get_change("untracked", "untracked.txt"))
@@ -264,7 +311,8 @@ class TestRepository(slop.test.TestCase):
 
     def test_revert(self):
         self.repository.revert(self.get_change("unstaged", "modified.txt"))
-        assert not self.repository.list_changes()["unstaged"]
+        assert "modified.txt" not in [
+            x.path for x in self.repository.list_changes()["unstaged"]]
 
     def test_has_staged_changes(self):
         assert self.repository.has_staged_changes()

@@ -17,6 +17,8 @@ git config user.email test@test
 git config user.name Test
 printf 'a\nb\nc\n' > modified.txt
 printf 'keep\n' > renamed-from.txt
+printf 'gone\naway\n' > deleted-staged.txt
+printf 'gone\ntoo\n' > deleted-unstaged.txt
 printf 'bin\000\001data\n' > binary.bin
 git add --all
 git commit --quiet -m init
@@ -24,11 +26,13 @@ git commit --quiet -m init
 # Staged
 printf 'a\nB\nc\nd\n' > modified.txt
 git mv renamed-from.txt renamed-to.txt
+git rm --quiet deleted-staged.txt
 printf 'bin\000\002data\n' > binary.bin
 git add --all
 
 # Unstaged
 printf 'a\nB\nc\nd\ne' > modified.txt
+rm deleted-unstaged.txt
 
 # Untracked
 printf 'new\n' > untracked.txt

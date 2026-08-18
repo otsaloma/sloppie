@@ -17,6 +17,7 @@
 
 import slop.test
 
+from slop.git import FileChange
 from slop.git import parse_diff
 
 class TestParseDiff(slop.test.TestCase):
@@ -298,3 +299,94 @@ class TestRepository(slop.test.TestCase):
         except RuntimeError:
             return
         raise AssertionError("expected RuntimeError")
+
+class TestGetFingerprint(slop.test.TestCase):
+
+    def setup_method(self, method):
+        self.root = slop.test.new_repository()
+        self.repository = slop.Repository(self.root)
+        self.fingerprint = self.repository.get_fingerprint()
+
+    def assert_changed(self):
+        assert self.repository.get_fingerprint() != self.fingerprint
+
+    def assert_status_unchanged(self, function):
+        # Run `function` and check that it left the status as it was, so
+        # that the fingerprint has only the modification times to go by.
+        before = self.repository._git("status", "--porcelain")
+        function()
+        assert self.repository._git("status", "--porcelain") == before
+
+    def test_nothing_changed(self):
+        # A fingerprint that changed on its own would have the window
+        # reload on every poll, for as long as it is open.
+        assert self.repository.get_fingerprint() == self.fingerprint
+
+    def test_tracked_file_edited(self):
+        # A file that is already modified stays modified, so nothing of
+        # the status says that it was edited again.
+        path = self.root / "modified.txt"
+        self.assert_status_unchanged(lambda: path.write_text("a\nB\nc\nd\nE"))
+        self.assert_changed()
+
+    def test_untracked_file_edited(self):
+        path = self.root / "untracked.txt"
+        self.assert_status_unchanged(lambda: path.write_text("newer\n"))
+        self.assert_changed()
+
+    def test_renamed_file_edited(self):
+        # The record of a rename carries the old path as one more field,
+        # past which the walk needs to find the new path, that being the
+        # one that exists to have a modification time.
+        self.assert_status_unchanged((self.root / "renamed-to.txt").touch)
+        self.assert_changed()
+
+    def test_file_added(self):
+        (self.root / "added.txt").write_text("new\n")
+        self.assert_changed()
+
+    def test_file_edited_in_an_untracked_directory(self):
+        # An untracked directory is reported as the directory alone
+        # unless all the untracked files are asked for by name. Editing
+        # a file leaves the modification time of its directory alone,
+        # so the directory is no substitute for the files in it.
+        (self.root / "sub").mkdir()
+        path = self.root / "sub" / "a.txt"
+        path.write_text("a\n")
+        self.fingerprint = self.repository.get_fingerprint()
+        self.assert_status_unchanged(lambda: path.write_text("aa\n"))
+        self.assert_changed()
+
+    def test_file_deleted(self):
+        (self.root / "untracked.txt").unlink()
+        self.assert_changed()
+
+    def test_file_staged(self):
+        self.repository.stage(FileChange("untracked", "untracked.txt",
+                                         "A", None, 1, 0))
+        self.assert_changed()
+
+    def test_file_unstaged(self):
+        self.repository.unstage(FileChange("staged", "modified.txt",
+                                           "M", None, 2, 1))
+        self.assert_changed()
+
+    def test_committed(self):
+        self.repository.commit("Add a thing")
+        self.assert_changed()
+
+    def test_branch_switched(self):
+        # Nothing about the files changes, only the branch they are on,
+        # which is what the status header is included for.
+        self.repository._git("checkout", "--quiet", "-b", "other")
+        self.assert_changed()
+
+    def test_ignored_file(self):
+        # Ignored files are not listed and thus not watched either,
+        # without which build output alone would keep the window
+        # reloading.
+        (self.root / ".gitignore").write_text("*.log\n")
+        self.repository._git("add", "--", ".gitignore")
+        self.fingerprint = self.repository.get_fingerprint()
+        (self.root / "ignored.log").write_text("noise\n")
+        assert self.repository.get_fingerprint() == self.fingerprint

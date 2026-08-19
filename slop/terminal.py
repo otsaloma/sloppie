@@ -36,6 +36,15 @@ class Terminal(Vte.Terminal):
 
     """A terminal running the user's shell in the repository."""
 
+    # The arguments of "file-clicked" are the absolute path of the file
+    # and the line and column to go to, the column being 1 if unknown.
+    __gsignals__ = {
+        "file-clicked": (GObject.SignalFlags.RUN_LAST, None,
+                         (GObject.TYPE_STRING,
+                          GObject.TYPE_INT,
+                          GObject.TYPE_INT)),
+    }
+
     def __init__(self, directory):
         GObject.GObject.__init__(self)
         self._directory = directory
@@ -67,17 +76,32 @@ class Terminal(Vte.Terminal):
         self.set_color_cursor(parse_color("#444444"))
 
     def _init_links(self):
-        # VTE finds the URLs and shows a hand over them, opening them on
-        # click is ours. Ptyxis wants Ctrl held, we don't. The click
+        # VTE finds the matches and shows a hand over them, opening them
+        # on click is ours. Ptyxis wants Ctrl held, we don't. The click
         # gesture needs the capture phase to beat VTE, which would take
-        # the click for the start of a selection. Requiring a URL to end
-        # in a character that a sentence can't end in leaves trailing
-        # punctuation out.
-        # The flags must include PCRE2_MULTILINE, which VTE demands but
-        # doesn't export to Python, hence the bare 0x400.
-        regex = Vte.Regex.new_for_match(
-            r"https?://\S+[[:alnum:]/]", -1, Vte.REGEX_FLAGS_DEFAULT | 0x400)
-        self.match_set_cursor_name(self.match_add_regex(regex, 0), "pointer")
+        # the click for the start of a selection. The flags must include
+        # PCRE2_MULTILINE, which VTE demands but doesn't export to
+        # Python, hence the bare 0x400.
+        flags = Vte.REGEX_FLAGS_DEFAULT | 0x400
+        # Requiring a URL to end in a character that a sentence can't end
+        # in leaves trailing punctuation out.
+        url_regex = Vte.Regex.new_for_match(r"https?://\S+[[:alnum:]/]", -1, flags)
+        # A file path with a ':LINE' suffix, as grep, flake8, pytest and
+        # the like print it. Anchoring on the line number keeps the hand
+        # cursor away from ordinary text that merely has a slash in it,
+        # 'and/or' or '3/4', and from git's 'a/file' diff headers, while
+        # requiring a letter in the file name keeps it off clock times.
+        # A regex can't tell a path from a lookalike, only the filesystem
+        # can, but the cursor is VTE's to draw off the regex alone.
+        file_regex = Vte.Regex.new_for_match(
+            r"(?<![[:alnum:]_/.~-])"
+            r"[~.]?/?(?:[[:alnum:]_.-]+/)*"
+            r"[[:alnum:]_-]*[[:alpha:]][[:alnum:]_.-]*"
+            r":[0-9]+(?::[0-9]+)?", -1, flags)
+        self._url_tag = self.match_add_regex(url_regex, 0)
+        self._file_tag = self.match_add_regex(file_regex, 0)
+        for tag in (self._url_tag, self._file_tag):
+            self.match_set_cursor_name(tag, "pointer")
         click = Gtk.GestureClick(
             button=1, propagation_phase=Gtk.PropagationPhase.CAPTURE)
         click.connect("pressed", self._on_click_pressed)
@@ -85,12 +109,26 @@ class Terminal(Vte.Terminal):
 
     def _on_click_pressed(self, click, n_press, x, y):
         # Only the first press of a double-click, which would otherwise
-        # open the URL twice.
+        # open the link twice.
         if n_press != 1: return
-        if (uri := self.check_match_at(x, y)[0]) is None: return
-        Gtk.UriLauncher(uri=uri).launch(self.get_root(), None, None)
+        text, tag = self.check_match_at(x, y)
+        if text is None: return
+        if tag == self._url_tag:
+            Gtk.UriLauncher(uri=text).launch(self.get_root(), None, None)
+        elif tag == self._file_tag:
+            path, line, column = (text.split(":") + ["1"])[:3]
+            path = Path(path).expanduser()
+            # Relative paths are the repository's own, which is right for
+            # the output of the commands run there, but wrong for a shell
+            # that has cd'd elsewhere.
+            if not path.is_absolute():
+                path = self._directory / path
+            # A lookalike that isn't a file is left to VTE as a plain
+            # click, so that a selection can still start there.
+            if not path.is_file(): return
+            self.emit("file-clicked", str(path), int(line), int(column))
         # Claim the click so that VTE doesn't get it too and start a
-        # selection anchored in the middle of the URL.
+        # selection anchored in the middle of the match.
         click.set_state(Gtk.EventSequenceState.CLAIMED)
 
     def _init_properties(self):

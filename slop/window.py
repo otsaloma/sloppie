@@ -286,6 +286,8 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_signal_handlers(self):
         self._file_sidebar.connect("change-selected", self._on_change_selected)
+        for terminal in self._terminals:
+            terminal.connect("file-clicked", self._on_file_clicked)
         # Clicking the stack switcher only switches the stack and leaves
         # focus on the switcher button, so focus the view shown here.
         self._stack_handler = self._stack.connect(
@@ -511,6 +513,9 @@ class Window(Gtk.ApplicationWindow):
             # preceding the file that it applies to.
             arguments.insert(0, "+{:d}:{:d}".format(*position))
         self._edit(*arguments)
+
+    def _on_file_clicked(self, terminal, path, line, column):
+        self._edit(f"+{line:d}:{column:d}", path)
 
     def _edit(self, *arguments):
         try:

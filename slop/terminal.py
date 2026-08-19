@@ -43,6 +43,7 @@ class Terminal(Vte.Terminal):
         self._spawned = False
         self._init_properties()
         self._init_colors()
+        self._init_links()
         self._init_shortcuts()
         self.connect("child-exited", self._on_child_exited)
         # Wait for the terminal to be shown before starting a shell. A
@@ -64,6 +65,33 @@ class Terminal(Vte.Terminal):
                 "#5d5d5d", "#f66151", "#33d17a", "#e9ad0c",
                 "#2a7bde", "#c061cb", "#33c7de", "#fafafa")])
         self.set_color_cursor(parse_color("#444444"))
+
+    def _init_links(self):
+        # VTE finds the URLs and shows a hand over them, opening them on
+        # click is ours. Ptyxis wants Ctrl held, we don't. The click
+        # gesture needs the capture phase to beat VTE, which would take
+        # the click for the start of a selection. Requiring a URL to end
+        # in a character that a sentence can't end in leaves trailing
+        # punctuation out.
+        # The flags must include PCRE2_MULTILINE, which VTE demands but
+        # doesn't export to Python, hence the bare 0x400.
+        regex = Vte.Regex.new_for_match(
+            r"https?://\S+[[:alnum:]/]", -1, Vte.REGEX_FLAGS_DEFAULT | 0x400)
+        self.match_set_cursor_name(self.match_add_regex(regex, 0), "pointer")
+        click = Gtk.GestureClick(
+            button=1, propagation_phase=Gtk.PropagationPhase.CAPTURE)
+        click.connect("pressed", self._on_click_pressed)
+        self.add_controller(click)
+
+    def _on_click_pressed(self, click, n_press, x, y):
+        # Only the first press of a double-click, which would otherwise
+        # open the URL twice.
+        if n_press != 1: return
+        if (uri := self.check_match_at(x, y)[0]) is None: return
+        Gtk.UriLauncher(uri=uri).launch(self.get_root(), None, None)
+        # Claim the click so that VTE doesn't get it too and start a
+        # selection anchored in the middle of the URL.
+        click.set_state(Gtk.EventSequenceState.CLAIMED)
 
     def _init_properties(self):
         self.set_hexpand(True)

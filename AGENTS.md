@@ -25,6 +25,7 @@ Document what you do take below.
 
 | Keys          | Sloppie      | Shell action disabled                           |
 | ------------- | ------------ | ----------------------------------------------- |
+| Click         | Open URL     | VTE selection start, but only over a URL        |
 | Ctrl+E        | Edit file    | readline end-of-line: cursor to end of line     |
 | Ctrl+Enter    | Commit       | readline accept-line: same as a plain Enter     |
 | Ctrl+M        | Add comment  | tty ^M: same as a plain Enter, Return unharmed  |

@@ -67,12 +67,12 @@ class Terminal(Vte.Terminal):
         # The light variant of the OTS palette, as used in Ptyxis. Only
         # the sixteen standard colors are given, VTE keeps its own
         # defaults for the color cube and the grayscale ramp.
-        self.set_colors(parse_color("#444444"), parse_color("#fafafa"), [
+        self.set_colors(parse_color("#444444"), parse_color("#fcfcef"), [
             parse_color(x) for x in (
                 "#444444", "#c01c28", "#26a269", "#a2734c",
                 "#12488b", "#a347ba", "#2aa1b3", "#cfcfcf",
                 "#5d5d5d", "#f66151", "#33d17a", "#e9ad0c",
-                "#2a7bde", "#c061cb", "#33c7de", "#fafafa")])
+                "#2a7bde", "#c061cb", "#33c7de", "#fcfcef")])
         self.set_color_cursor(parse_color("#444444"))
 
     def _init_links(self):

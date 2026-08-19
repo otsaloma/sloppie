@@ -77,6 +77,11 @@ stackswitcher > button.text-button.slop-narrow-tab {
   min-width: 300px;
 }
 
+/* Override 'rich-list' generous spacing. */
+.slop-recent-list > row > box {
+  border-spacing: 6px;
+}
+
 .slop-recent-path {
   font-size: smaller;
   opacity: 0.5;

@@ -90,18 +90,31 @@ class Window(Gtk.ApplicationWindow):
         # the row activated tells which of them to open.
         listbox.connect("row-activated", lambda listbox, row:
                         self._open_repository(paths[row.get_index()]))
-        for path in paths:
-            # The name of the repository, followed by the directory
-            # that holds it, which together make up the full path.
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-            row.append(Gtk.Label(label=path.name))
-            label = Gtk.Label(label=str(path.parent), xalign=1)
-            label.add_css_class("slop-recent-path")
+        for i, path in enumerate(paths, start=1):
+            # The number and name of the repository, followed by the
+            # directory that holds it, which together make up the full
+            # path. The number is a label of its own, so that it can be
+            # dimmed and be a mnemonic without the name interfering.
+            # The spacing between these comes from the CSS, 'rich-list'
+            # setting a border-spacing that beats the box's own spacing.
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+            mnemonic = i <= 9
+            number = Gtk.Label(label=f"_{i}." if mnemonic else f"{i}.",
+                               use_underline=mnemonic)
+            number.add_css_class("dim-label")
+            box.append(number)
+            box.append(Gtk.Label(label=path.name))
+            path_label = Gtk.Label(label=str(path.parent), xalign=1)
+            path_label.add_css_class("slop-recent-path")
             # Long paths give way rather than widen the whole window.
-            label.set_ellipsize(Pango.EllipsizeMode.START)
-            label.set_max_width_chars(1)
-            label.set_hexpand(True)
-            row.append(label)
+            path_label.set_ellipsize(Pango.EllipsizeMode.START)
+            path_label.set_max_width_chars(1)
+            path_label.set_hexpand(True)
+            box.append(path_label)
+            row = Gtk.ListBoxRow(child=box)
+            if mnemonic:
+                # Alt+N activates the row, as though clicked.
+                number.set_mnemonic_widget(row)
             listbox.append(row)
         # Keep the list from growing past the window with many
         # repositories, but let a short list stay short.

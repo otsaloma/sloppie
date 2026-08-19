@@ -182,30 +182,38 @@ class Terminal(Vte.Terminal):
         self._spawned = True
         # Fall back to sh if the user has no shell in the passwd database.
         shell = Vte.get_user_shell() or "/bin/sh"
+        # Make the pty ourselves, which spawning via the terminal would
+        # do for us, to have the name of its slave end for SLOPPIE_TTY.
+        pty = self.pty_new_sync(Vte.PtyFlags.DEFAULT)
+        self.set_pty(pty)
         # Note that pygobject keeps child_setup_data, unlike the
-        # documented signature, making this eleven arguments, not ten.
+        # documented signature, making this ten arguments, not nine.
         # The environment given is added to the one inherited, so
         # SLOPPIE tells whatever runs here that it's running in Sloppie
         # and can leave desktop notifications to us — a bell is enough.
-        self.spawn_async(Vte.PtyFlags.DEFAULT,
-                         str(self._directory),
-                         [shell],
-                         ["SLOPPIE=1"],
-                         GLib.SpawnFlags.DEFAULT,
-                         None,
-                         None,
-                         -1,
-                         None,
-                         self._on_spawn_done,
-                         None)
+        # SLOPPIE_TTY is where to write that bell: an agent rings it from
+        # a hook, which runs detached, with no terminal of its own to
+        # find, but writing to the slave device works from anywhere.
+        pty.spawn_async(str(self._directory),
+                        [shell],
+                        ["SLOPPIE=1", f"SLOPPIE_TTY={os.ptsname(pty.get_fd())}"],
+                        GLib.SpawnFlags.DEFAULT,
+                        None,
+                        None,
+                        -1,
+                        None,
+                        self._on_spawn_done,
+                        None)
 
-    def _on_spawn_done(self, terminal, pid, error, *args):
-        self._pid = pid if error is None else None
-        if error is None: return
-        # Without a shell the terminal is a blank box, so say why. The
-        # window is there by now, this being called from the main loop,
-        # long after the terminal was made and put in it.
-        slop.util.show_error(self.get_root(), "Failed to start the shell", error.message)
+    def _on_spawn_done(self, pty, result, *args):
+        try:
+            self._pid = pty.spawn_finish(result).child_pid
+        except GLib.Error as error:
+            self._pid = None
+            # Without a shell the terminal is a blank box, so say why. The
+            # window is there by now, this being called from the main loop,
+            # long after the terminal was made and put in it.
+            slop.util.show_error(self.get_root(), "Failed to start the shell", error.message)
 
     def get_selection(self):
         """Return the text selected in the terminal, or ``None`` if none."""

@@ -164,6 +164,10 @@ class Window(Gtk.ApplicationWindow):
         self._init_tab_shortcuts()
         self._init_signal_handlers()
         self.refresh()
+        # Sloppie is started to begin a new task, and that work starts at
+        # the terminal, so land there rather than on the diff view, which
+        # is the first tab and would otherwise be the one shown.
+        self._stack.set_visible_child_name("terminal-1")
 
     def _init_actions(self):
         # These are the actions of the file sidebar's context menu, which

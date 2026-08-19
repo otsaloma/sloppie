@@ -65,6 +65,10 @@ class Window(Gtk.ApplicationWindow):
         box.set_halign(Gtk.Align.CENTER)
         box.set_valign(Gtk.Align.CENTER)
         box.set_margin_bottom(200)
+        # Only found once the icon has been installed, but that's fine,
+        # a missing icon just leaves an empty space above the button.
+        image = Gtk.Image(icon_name="io.otsaloma.sloppie", pixel_size=128)
+        box.append(image)
         button = Gtk.Button(label="_Open Repository", use_underline=True)
         button.add_css_class("suggested-action")
         button.set_halign(Gtk.Align.CENTER)

@@ -46,15 +46,9 @@ class Comment:
         """Return the comment as text to be handed to an agent."""
         parts = []
         if self.path is not None:
-            parts.append(f"In `{self.path}` regarding:"
-                         if self.hunk is not None else
-                         f"In `{self.path}`:")
-        elif self.hunk is not None:
-            # A hunk from the terminal has no file it came from, so say
-            # at least that the block below is what the comment is on.
-            parts.append("Regarding:")
+            parts.append(f"{self.path}:")
         if self.hunk is not None:
-            parts.append("```\n" + self.hunk.strip("\n") + "\n```")
+            parts.append(self.hunk.strip("\n"))
         parts.append(self.text)
         return "\n\n".join(parts)
 
@@ -387,9 +381,15 @@ class CommentSidebar(Gtk.Box):
         comments = [x for x in self._comments
                     if x.branch == self._branch and not x.sent]
         if not comments: return
-        # A rule between comments, so that the agent can tell where one
-        # ends and the next begins, comments being prose of any shape.
-        text = "\n---\n".join(x.serialize() for x in comments)
+        parts = [x.serialize() for x in comments]
+        if len(parts) > 1:
+            # A heading above each comment, so that the agent can tell
+            # where one ends and the next begins, comments being prose of
+            # any shape. A heading rather than a rule, a pasted hunk
+            # being far more likely to hold a line of dashes than this.
+            parts = [f"# COMMENT {i}\n\n{x}"
+                     for i, x in enumerate(parts, start=1)]
+        text = "\n\n".join(parts)
         if not self.get_root().send_to_agent(text): return
         for comment in comments:
             comment.sent = True

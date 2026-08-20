@@ -67,11 +67,12 @@ class CommentDialog(Gtk.Window):
 
     __gsignals__ = {
         "deleted": (GObject.SignalFlags.RUN_LAST, None, ()),
+        "moved": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
         "saved": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
         "sent": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
     }
 
-    def __init__(self, parent, branch, text="", path=None, hunk=None):
+    def __init__(self, parent, branch, current, text="", path=None, hunk=None):
         GObject.GObject.__init__(self)
         self._branch = branch
         # Text given means an existing comment being edited.
@@ -83,6 +84,12 @@ class CommentDialog(Gtk.Window):
         self._hunk = None if hunk is None else dedent_hunk(hunk)
         self._button = Gtk.Button(label="_Save" if text else "_Add",
                                   use_underline=True)
+        # Only a comment written against another branch has anywhere to
+        # be moved, one round of review often fanning out into several
+        # branches.
+        self._move = None if branch == current else Gtk.Button(
+            icon_name="object-flip-vertical-symbolic",
+            tooltip_text="Move to Current Branch")
         # The icon theme has no up arrow that would fit a header bar,
         # a send icon being the closest thing.
         self._send = Gtk.Button(icon_name="send-to-symbolic",
@@ -168,6 +175,8 @@ class CommentDialog(Gtk.Window):
         header.pack_end(self._button)
         # Packed after the save button, which puts it left of it, the
         # header bar filling its end from the right inwards.
+        if self._move is not None:
+            header.pack_end(self._move)
         header.pack_end(self._send)
         self.set_titlebar(header)
         self._view.add_css_class("monospace")
@@ -191,6 +200,8 @@ class CommentDialog(Gtk.Window):
     def _init_signal_handlers(self):
         self._button.connect("clicked", lambda *args: self._save())
         self._send.connect("clicked", lambda *args: self._send_to_agent())
+        if self._move is not None:
+            self._move.connect("clicked", lambda *args: self._move_to_current())
         buffer = self._view.get_buffer()
         buffer.connect("changed", lambda *args: self._update_button())
         self._update_button()
@@ -214,6 +225,8 @@ class CommentDialog(Gtk.Window):
         # An empty comment is no comment at all.
         self._button.set_sensitive(bool(self._get_text()))
         self._send.set_sensitive(bool(self._get_text()))
+        if self._move is not None:
+            self._move.set_sensitive(bool(self._get_text()))
 
     def _save(self):
         # Reachable with nothing typed by way of Ctrl+Enter, which,
@@ -226,6 +239,13 @@ class CommentDialog(Gtk.Window):
         # Sending is saving too, the comment being kept either way,
         # also if there turns out to be no agent to send it to.
         self.emit("sent", self._get_text())
+        self.close()
+
+    def _move_to_current(self):
+        """Have the comment moved to the current branch."""
+        # Moving is saving too, the text being kept as edited, the same
+        # as when sending.
+        self.emit("moved", self._get_text())
         self.close()
 
     def _delete(self):
@@ -356,11 +376,17 @@ class CommentSidebar(Gtk.Box):
         """Let the user rewrite, send or delete `comment`."""
         # The branch of the comment, not the current one, that being
         # what the comment was written against and still says.
-        dialog = CommentDialog(self.get_root(), comment.branch,
+        dialog = CommentDialog(self.get_root(), comment.branch, self._branch,
                                comment.text, comment.path, comment.hunk)
 
         def on_saved(dialog, text):
             comment.text = text
+            self._write()
+            self._update_cards()
+
+        def on_moved(dialog, text):
+            comment.text = text
+            comment.branch = self._branch
             self._write()
             self._update_cards()
 
@@ -375,6 +401,7 @@ class CommentSidebar(Gtk.Box):
             self._write()
             self._update_cards()
         dialog.connect("saved", on_saved)
+        dialog.connect("moved", on_moved)
         dialog.connect("sent", on_sent)
         dialog.connect("deleted", on_deleted)
         dialog.present()
@@ -425,7 +452,8 @@ class CommentSidebar(Gtk.Box):
 
     def new_comment(self, path=None, hunk=None):
         """Let the user write a comment on `path` and `hunk`, or on the changes."""
-        dialog = CommentDialog(self.get_root(), self._branch, path=path, hunk=hunk)
+        dialog = CommentDialog(self.get_root(), self._branch, self._branch,
+                               path=path, hunk=hunk)
         # The comment lands in the sidebar in plain sight, so it needs
         # no toast to say that it was added.
         dialog.connect("saved", lambda dialog, text:

@@ -246,6 +246,10 @@ class Terminal(Vte.Terminal):
     def _on_spawn_done(self, pty, result, *args):
         try:
             self._pid = pty.spawn_finish(result).child_pid
+            # Spawning via the pty, unlike via the terminal, leaves the
+            # child unwatched, and "child-exited" is only ever emitted
+            # for a watched one.
+            self.watch_child(self._pid)
         except GLib.Error as error:
             self._pid = None
             # Without a shell the terminal is a blank box, so say why. The

@@ -18,6 +18,7 @@
 import slop
 
 from contextlib import suppress
+from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
@@ -101,6 +102,23 @@ class CommentDialog(Gtk.Window):
             parts.append(f"in {self._path}" if parts else self._path)
         return f"Regarding {' '.join(parts)}" if parts else None
 
+    def _get_tooltip(self):
+        """Return markup showing the file and hunk the comment is on."""
+        parts = []
+        if self._path is not None:
+            parts.append(GLib.markup_escape_text(self._path))
+        if self._hunk is not None:
+            lines = self._hunk.strip("\n").split("\n")
+            # A tooltip is a glance, not a document, so show only the
+            # first lines of the hunk and only the start of each line.
+            clipped = [x[:100] + "..." if len(x) > 100 else x for x in lines[:20]]
+            if len(lines) > 20:
+                clipped.append("...")
+            text = GLib.markup_escape_text("\n".join(clipped))
+            # Monospace, the hunk being code, where alignment matters.
+            parts.append(f"<tt>{text}</tt>")
+        return "\n\n".join(parts) or None
+
     def _init_widgets(self):
         header = Gtk.HeaderBar()
         header.set_show_title_buttons(False)
@@ -126,6 +144,10 @@ class CommentDialog(Gtk.Window):
             # name, which is the part that says the most.
             label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
             box.append(label)
+        if tooltip := self._get_tooltip():
+            # The title says only what the comment is on, in brief, the
+            # file and the hunk in full being a hover away.
+            box.set_tooltip_markup(tooltip)
         header.set_title_widget(box)
         cancel = Gtk.Button(label="_Cancel", use_underline=True)
         cancel.connect("clicked", lambda *args: self.close())

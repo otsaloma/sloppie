@@ -84,12 +84,15 @@ class CommentDialog(Gtk.Window):
         self._hunk = None if hunk is None else dedent_hunk(hunk)
         self._button = Gtk.Button(label="_Save" if text else "_Add",
                                   use_underline=True)
-        # Only a comment written against another branch has anywhere to
-        # be moved, one round of review often fanning out into several
-        # branches.
-        self._move = None if branch == current else Gtk.Button(
+        # Moving goes both ways, as the up and down arrows say: a comment
+        # of another branch to the current one, to be handled along with
+        # the work at hand, and one of the current branch off it, to be
+        # left for whichever branch it turns out to belong to. Only an
+        # existing comment is there to be moved.
+        self._move = None if not text else Gtk.Button(
             icon_name="object-flip-vertical-symbolic",
-            tooltip_text="Move to Current Branch")
+            tooltip_text=("Move off Current Branch" if branch == current else
+                          "Move to Current Branch"))
         # The icon theme has no up arrow that would fit a header bar,
         # a send icon being the closest thing.
         self._send = Gtk.Button(icon_name="send-to-symbolic",
@@ -103,9 +106,11 @@ class CommentDialog(Gtk.Window):
         self.set_default_size(600, 300)
         self.set_modal(True)
         # Comments are written against a branch, so say which one, that
-        # being what tells apart one set of comments from another.
+        # being what tells apart one set of comments from another. A
+        # comment moved off its branch has none to name.
         verb = "Edit" if self._text else "Add"
-        self.set_title(f"{verb} Comment on {self._branch}")
+        self.set_title(f"{verb} Comment on {self._branch}"
+                       if self._branch else f"{verb} Comment")
         self.set_transient_for(parent)
 
     def _get_subtitle(self):
@@ -359,7 +364,7 @@ class CommentSidebar(Gtk.Box):
         for comment in mine:
             self._box.append(self._init_card(comment))
         if others:
-            # A heading, so that comments written against another branch
+            # A heading, so that comments of another branch or of none
             # are told apart from those of the work at hand at a glance.
             label = Gtk.Label(label="Other Branches", xalign=0.5)
             label.add_css_class("dim-label")
@@ -386,7 +391,10 @@ class CommentSidebar(Gtk.Box):
 
         def on_moved(dialog, text):
             comment.text = text
-            comment.branch = self._branch
+            # Off the current branch if on it, onto it if not, there
+            # being only these two places for a comment to be.
+            comment.branch = (None if comment.branch == self._branch
+                              else self._branch)
             self._write()
             self._update_cards()
 

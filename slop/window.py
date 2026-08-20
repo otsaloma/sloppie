@@ -372,7 +372,7 @@ class Window(Gtk.ApplicationWindow):
                                    tooltip_text="Add Comment (Ctrl+M)"))
         comments.append(Gtk.Button(action_name="win.send-comments",
                                    icon_name="send-to-symbolic",
-                                   tooltip_text="Send All Comments"))
+                                   tooltip_text="Send Unsent Comments"))
         comments.append(Gtk.Button(action_name="win.delete-sent-comments",
                                    icon_name="user-trash-symbolic",
                                    tooltip_text="Delete Sent Comments"))
@@ -570,7 +570,7 @@ class Window(Gtk.ApplicationWindow):
         self._comment_sidebar.new_comment(change.path, hunk)
 
     def _on_send_comments_activate(self, *args):
-        self._comment_sidebar.send_all_comments()
+        self._comment_sidebar.send_unsent_comments()
 
     def _on_delete_sent_comments_activate(self, *args):
         self._comment_sidebar.delete_sent_comments()

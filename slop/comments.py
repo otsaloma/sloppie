@@ -333,14 +333,17 @@ class CommentSidebar(Gtk.Box):
         self._write()
         self._update_cards()
 
-    def send_all_comments(self):
-        """Hand all the comments to the agent as one message."""
-        if not self._comments: return
+    def send_unsent_comments(self):
+        """Hand the comments not yet sent to the agent as one message."""
+        # A sent comment is done with and only resent one at a time,
+        # from its own dialog, sending being deliberate at that point.
+        comments = [x for x in self._comments if not x.sent]
+        if not comments: return
         # A rule between comments, so that the agent can tell where one
         # ends and the next begins, comments being prose of any shape.
-        text = "\n---\n".join(x.serialize() for x in self._comments)
+        text = "\n---\n".join(x.serialize() for x in comments)
         if not self.get_root().send_to_agent(text): return
-        for comment in self._comments:
+        for comment in comments:
             comment.sent = True
         self._write()
         self._update_cards()

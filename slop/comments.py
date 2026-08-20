@@ -17,6 +17,7 @@
 
 import slop
 import textwrap
+import time
 
 from contextlib import suppress
 from gi.repository import GLib
@@ -31,9 +32,10 @@ class Comment:
 
     """One review comment, on the changes as a whole or on a hunk."""
 
-    __slots__ = ("text", "branch", "path", "hunk", "sent")
+    __slots__ = ("text", "branch", "path", "hunk", "sent", "created_at")
 
-    def __init__(self, text, branch, path=None, hunk=None, sent=False):
+    def __init__(self, text, branch, path=None, hunk=None, sent=False,
+                 created_at=None):
         self.text = text
         # The branch the comment was written against, which is not
         # necessarily the one it ends up handled on, one round of review
@@ -45,6 +47,9 @@ class Comment:
         # True once handed to an agent, which is a fact worth keeping,
         # a comment being no less permanent for having been sent.
         self.sent = sent
+        # Unix timestamp of writing, by which the comments are sorted,
+        # the latest being the one most likely to still be in mind.
+        self.created_at = int(time.time()) if created_at is None else created_at
 
     def serialize(self):
         """Return the comment as text to be handed to an agent."""
@@ -274,7 +279,8 @@ class CommentSidebar(Gtk.Box):
         """Return the comments of all branches, read from file."""
         items = slop.util.read_json(self._get_file(), [])
         return [Comment(x["text"], x.get("branch"), x.get("path"),
-                        x.get("hunk"), x.get("sent", False))
+                        x.get("hunk"), x.get("sent", False),
+                        x.get("created_at", 0))
                 for x in items]
 
     def _write(self):
@@ -286,7 +292,8 @@ class CommentSidebar(Gtk.Box):
                 path.unlink(missing_ok=True)
             return
         items = [{"text": x.text, "branch": x.branch, "path": x.path,
-                  "hunk": x.hunk, "sent": x.sent}
+                  "hunk": x.hunk, "sent": x.sent,
+                  "created_at": x.created_at}
                  for x in self._comments]
         slop.util.write_json(items, path)
 
@@ -324,8 +331,11 @@ class CommentSidebar(Gtk.Box):
         """Rebuild the cards to match the comments."""
         while child := self._box.get_first_child():
             self._box.remove(child)
-        mine = [x for x in self._comments if x.branch == self._branch]
-        others = [x for x in self._comments if x.branch != self._branch]
+        # Latest first, the comment just written being the one the user
+        # is most likely to look at, edit or delete next.
+        comments = sorted(self._comments, key=lambda x: -x.created_at)
+        mine = [x for x in comments if x.branch == self._branch]
+        others = [x for x in comments if x.branch != self._branch]
         for comment in mine:
             self._box.append(self._init_card(comment))
         if others:

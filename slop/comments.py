@@ -27,10 +27,14 @@ class Comment:
 
     """One review comment, on the changes as a whole or on a hunk."""
 
-    __slots__ = ("text", "path", "hunk", "sent")
+    __slots__ = ("text", "branch", "path", "hunk", "sent")
 
-    def __init__(self, text, path=None, hunk=None, sent=False):
+    def __init__(self, text, branch, path=None, hunk=None, sent=False):
         self.text = text
+        # The branch the comment was written against, which is not
+        # necessarily the one it ends up handled on, one round of review
+        # often fanning out into several branches.
+        self.branch = branch
         # Both None for a comment on the changes as a whole.
         self.path = path
         self.hunk = hunk
@@ -122,9 +126,8 @@ class CommentDialog(Gtk.Window):
     def _init_widgets(self):
         header = Gtk.HeaderBar()
         header.set_show_title_buttons(False)
-        # A title of our own in place of the window title, so that it
-        # can be shown in red on main or master, where comments are
-        # most likely written against the wrong branch.
+        # A title of our own in place of the window title, so that a
+        # second line can be put under it.
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         # Center the lines together, the box being given the full height
         # of the header bar, which they don't fill.
@@ -132,8 +135,6 @@ class CommentDialog(Gtk.Window):
         title = Gtk.Label(label=self.get_title())
         title.add_css_class("title")
         title.set_ellipsize(Pango.EllipsizeMode.END)
-        if self._branch in ("main", "master"):
-            title.add_css_class("slop-title-warning")
         box.append(title)
         if subtitle := self._get_subtitle():
             # A comment on a piece of code says which one, there being
@@ -240,10 +241,12 @@ class CommentSidebar(Gtk.Box):
         self.repository = repository
         self._branch = None
         self._box = None
-        self._comments = []
         self._placeholder = None
         self._scroller = None
         self._init_widgets()
+        # Read once, the file holding the comments of all branches. The
+        # cards wait for the branch, which says how they are grouped.
+        self._comments = self._read()
 
     def _init_widgets(self):
         self.add_css_class("slop-comment-sidebar")
@@ -262,27 +265,28 @@ class CommentSidebar(Gtk.Box):
 
     def _get_file(self):
         """Return the path of the file the comments are kept in."""
-        # Comments outlive the session, but not the branch they were
-        # written against, the changes they comment on being gone once
-        # the branch is merged or abandoned.
-        return (self.repository.git_dir /
-                "sloppie" / "comments" / f"{self._branch}.json")
+        # One file for the whole repository rather than one per branch:
+        # comments outlive the branch they were written against, work
+        # commented on in one go often being split over branches.
+        return self.repository.git_dir / "sloppie" / "comments.json"
 
     def _read(self):
-        """Return the comments of the current branch, read from file."""
+        """Return the comments of all branches, read from file."""
         items = slop.util.read_json(self._get_file(), [])
-        return [Comment(x["text"], x.get("path"), x.get("hunk"), x.get("sent", False))
+        return [Comment(x["text"], x.get("branch"), x.get("path"),
+                        x.get("hunk"), x.get("sent", False))
                 for x in items]
 
     def _write(self):
-        """Write the comments of the current branch to file."""
+        """Write the comments of all branches to file."""
         path = self._get_file()
         if not self._comments:
             # Leave no file behind once the last comment is gone.
             with suppress(Exception):
                 path.unlink(missing_ok=True)
             return
-        items = [{"text": x.text, "path": x.path, "hunk": x.hunk, "sent": x.sent}
+        items = [{"text": x.text, "branch": x.branch, "path": x.path,
+                  "hunk": x.hunk, "sent": x.sent}
                  for x in self._comments]
         slop.util.write_json(items, path)
 
@@ -299,6 +303,10 @@ class CommentSidebar(Gtk.Box):
             # A sent comment is done with, as far as the user is
             # concerned, but stays around to be resent or deleted.
             label.add_css_class("slop-comment-sent")
+        if comment.branch != self._branch:
+            # Not part of the work at hand, hence dimmed, but in sight
+            # and there to be acted on, one comment at a time.
+            label.add_css_class("dim-label")
         label.set_wrap(True)
         label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
         # Ask for no width at all, so that the text wraps to the
@@ -316,14 +324,29 @@ class CommentSidebar(Gtk.Box):
         """Rebuild the cards to match the comments."""
         while child := self._box.get_first_child():
             self._box.remove(child)
-        for comment in self._comments:
+        mine = [x for x in self._comments if x.branch == self._branch]
+        others = [x for x in self._comments if x.branch != self._branch]
+        for comment in mine:
+            self._box.append(self._init_card(comment))
+        if others:
+            # A heading, so that comments written against another branch
+            # are told apart from those of the work at hand at a glance.
+            label = Gtk.Label(label="Other Branches", xalign=0.5)
+            label.add_css_class("dim-label")
+            # Closer to the comments below than to those above, the
+            # heading belonging to the group it introduces.
+            label.set_margin_top(6)
+            self._box.append(label)
+        for comment in others:
             self._box.append(self._init_card(comment))
         self._scroller.set_visible(bool(self._comments))
         self._placeholder.set_visible(not self._comments)
 
     def _edit_comment(self, comment):
         """Let the user rewrite, send or delete `comment`."""
-        dialog = CommentDialog(self.get_root(), self._branch,
+        # The branch of the comment, not the current one, that being
+        # what the comment was written against and still says.
+        dialog = CommentDialog(self.get_root(), comment.branch,
                                comment.text, comment.path, comment.hunk)
 
         def on_saved(dialog, text):
@@ -356,10 +379,13 @@ class CommentSidebar(Gtk.Box):
         self._update_cards()
 
     def send_unsent_comments(self):
-        """Hand the comments not yet sent to the agent as one message."""
-        # A sent comment is done with and only resent one at a time,
-        # from its own dialog, sending being deliberate at that point.
-        comments = [x for x in self._comments if not x.sent]
+        """Hand the comments of the current branch not yet sent to the agent."""
+        # Only the current branch's, the comments of another branch
+        # being for other work. A sent comment is likewise done with.
+        # Either is only ever sent one at a time, from its own dialog,
+        # sending being deliberate at that point.
+        comments = [x for x in self._comments
+                    if x.branch == self._branch and not x.sent]
         if not comments: return
         # A rule between comments, so that the agent can tell where one
         # ends and the next begins, comments being prose of any shape.
@@ -371,9 +397,13 @@ class CommentSidebar(Gtk.Box):
         self._update_cards()
 
     def delete_sent_comments(self):
-        """Remove the comments that have been sent to the agent."""
-        if not any(x.sent for x in self._comments): return
-        self._comments = [x for x in self._comments if not x.sent]
+        """Remove the comments of the current branch that have been sent."""
+        # Only the current branch's, as with sending, the comments of
+        # another branch being deleted one at a time, from their dialog.
+        keep = [x for x in self._comments
+                if not x.sent or x.branch != self._branch]
+        if len(keep) == len(self._comments): return
+        self._comments = keep
         self._write()
         self._update_cards()
 
@@ -390,15 +420,14 @@ class CommentSidebar(Gtk.Box):
 
     def add_comment(self, text, path=None, hunk=None):
         """Add and return a comment on `path` and `hunk`, saving it to file."""
-        comment = Comment(text, path, hunk)
+        comment = Comment(text, self._branch, path, hunk)
         self._comments.append(comment)
         self._write()
         self._update_cards()
         return comment
 
     def set_branch(self, branch):
-        """Show the comments written against `branch`."""
+        """Show the comments written against `branch` first."""
         if branch == self._branch: return
         self._branch = branch
-        self._comments = self._read()
         self._update_cards()

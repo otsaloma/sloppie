@@ -15,10 +15,6 @@ stackswitcher > button.text-button.slop-narrow-tab {
   padding-right: 0;
 }
 
-.slop-title-warning {
-  color: @error_color;
-}
-
 .slop-file-sidebar listview {
   background-color: transparent;
 }

@@ -48,18 +48,32 @@ class TestHunks(slop.test.TestCase):
 EOF
 
 # Comments
-mkdir -p ".git/sloppie/comments"
-cat > ".git/sloppie/comments/$(git branch --show-current).json" <<'EOF'
+BRANCH=$(git branch --show-current)
+mkdir -p ".git/sloppie"
+cat > ".git/sloppie/comments.json" <<EOF
 [{
   "text": "Rename the module to something less generic.",
+  "branch": "$BRANCH",
   "path": null,
   "hunk": null
 }, {
   "text": "Splitting a diff into hunks belongs in git.py next to parse_diff, which is the only place that knows what a hunk line looks like. A module of its own for one function is one file too many.",
+  "branch": "$BRANCH",
   "path": null,
   "hunk": null
 }, {
   "text": "The quote style reformat is unrelated to the rest of the changes here, please pull it out into a commit of its own so that the actual change is reviewable.",
+  "branch": "$BRANCH",
+  "path": null,
+  "hunk": null
+}, {
+  "text": "The tests cover the empty case only, add one with two hunks and one with a rename header between them.",
+  "branch": "hunks",
+  "path": null,
+  "hunk": null
+}, {
+  "text": "Leave rename detection out of this, it needs the numstat parsing reworked first.",
+  "branch": "hunks",
   "path": null,
   "hunk": null
 }]

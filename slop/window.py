@@ -398,6 +398,8 @@ class Window(Gtk.ApplicationWindow):
             page = self._stack.add_titled(scroller, f"terminal-{i}", title)
             page.set_use_underline(True)
             terminal.connect("bell", self._on_terminal_bell, page, i)
+            terminal.connect("command-finished",
+                             self._on_terminal_command_finished, page, i)
         switcher.set_stack(self._stack)
         # The switcher builds a button per page in the order added, but
         # hands out no reference to them, so walk its children instead.
@@ -653,10 +655,20 @@ class Window(Gtk.ApplicationWindow):
 
     def _on_terminal_bell(self, terminal, page, index):
         # A bell means that whatever runs in the terminal wants
-        # attention: an agent done with its turn, a build finished. The
-        # switcher marks the tab with a dot, but only as long as it's not
-        # the tab on screen, so don't mark the one being looked at, which
-        # would leave a mark to appear on switching away from it.
+        # attention: an agent done with its turn, a build finished.
+        self._alert_terminal(terminal, page, index, "Agent wants something")
+
+    def _on_terminal_command_finished(self, terminal, command, page, index):
+        # A command that ran long enough to be noticed at all is one that
+        # the user has likely walked away from: a test run, an eval, a
+        # training job. Whether it succeeded is between the command and
+        # the shell, we only know that the terminal is at the prompt.
+        self._alert_terminal(terminal, page, index, f"{command} finished")
+
+    def _alert_terminal(self, terminal, page, index, body):
+        # The switcher marks the tab with a dot, but only as long as it's
+        # not the tab on screen, so don't mark the one being looked at,
+        # which would leave a mark to appear on switching away from it.
         if page.get_child() is not self._stack.get_visible_child():
             page.set_needs_attention(True)
         # Sitting at this very terminal, the user has seen it all
@@ -667,10 +679,10 @@ class Window(Gtk.ApplicationWindow):
         # send a desktop notification. It carries our application id,
         # which is how GNOME shows it under Sloppie's name and icon and,
         # when clicked, raises a Sloppie window. Include the repository
-        # in the id, so that a second bell replaces the notification of
-        # the first, but another window's bells keep their own.
+        # in the id, so that a second alert replaces the notification of
+        # the first, but another window's alerts keep their own.
         notification = Gio.Notification.new(self.repository.root.name)
-        notification.set_body("Agent wants something")
+        notification.set_body(body)
         # The application id gets us a small icon in the header of the
         # notification, an icon of our own gets the big one beside the
         # text, the same as notify-send's --icon. Give it the same icon,

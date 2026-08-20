@@ -38,22 +38,28 @@ class Terminal(Vte.Terminal):
 
     # The arguments of "file-clicked" are the absolute path of the file
     # and the line and column to go to, the column being 1 if unknown.
+    # The argument of "command-finished" is the name of the command that
+    # ran in the foreground and has now returned to the prompt.
     __gsignals__ = {
         "file-clicked": (GObject.SignalFlags.RUN_LAST, None,
                          (GObject.TYPE_STRING,
                           GObject.TYPE_INT,
                           GObject.TYPE_INT)),
+        "command-finished": (GObject.SignalFlags.RUN_LAST, None,
+                             (GObject.TYPE_STRING,)),
     }
 
     def __init__(self, directory):
         GObject.GObject.__init__(self)
         self._directory = directory
+        self._command = None
         self._pid = None
         self._spawned = False
         self._init_properties()
         self._init_colors()
         self._init_links()
         self._init_shortcuts()
+        self._init_poll()
         self.connect("child-exited", self._on_child_exited)
         # Wait for the terminal to be shown before starting a shell. A
         # stack maps only the page on screen, so this is the first switch
@@ -146,6 +152,38 @@ class Terminal(Vte.Terminal):
         self.set_font(Pango.FontDescription.from_string(
             "Berkeley Standard Mono Medium 10"))
 
+    def _init_poll(self):
+        # Watch the foreground command come and go, so that a test run,
+        # an eval or a training job finishing can be told about. VTE's
+        # shell termprops would say the same, and say it right away, but
+        # only with shell integration that emits them, which we can't
+        # count on. Three seconds, as the window polls git, is thus also
+        # the shortest command that can be noticed at all, which suits
+        # us: a command that returns in the blink of an eye is not one
+        # worth a notification.
+        source = GLib.timeout_add_seconds(3, self._on_poll_timeout)
+        self.connect("destroy", lambda *args: GLib.source_remove(source))
+
+    def _on_poll_timeout(self):
+        if (group := self._get_foreground_group()) is None:
+            # Back at the prompt, so whatever ran there is done.
+            if self._command is not None:
+                command, self._command = self._command, None
+                self.emit("command-finished", command)
+        else:
+            try:
+                # The leader of the group is the command that the shell
+                # started, which is what the user typed, the rest of the
+                # group being that command's own children.
+                self._command = (Path("/proc") / str(group) / "comm").read_text("utf-8").strip()
+            except Exception:
+                # The leader can be gone while the rest of the group
+                # still runs, as at the head of a pipeline, in which
+                # case the name from the previous poll is the best we
+                # have. A command never named is never told about.
+                pass
+        return GLib.SOURCE_CONTINUE
+
     def _init_shortcuts(self):
         # VTE has the clipboard API, but no keybindings for it, those
         # being left to the application; only middle-click pasting the
@@ -222,19 +260,22 @@ class Terminal(Vte.Terminal):
         if not self.get_has_selection(): return None
         return self.get_text_selected(Vte.Format.TEXT)
 
-    def get_foreground_commands(self):
-        """Return the names of the commands running, empty if at the prompt."""
-        # VTE's shell termprops would tell us this, but only with shell
-        # integration that emits them, which we can't count on. The pty
-        # knows all the same: its foreground process group is the
-        # shell's own only while the shell waits for a command.
-        if self._pid is None: return []
-        if (pty := self.get_pty()) is None: return []
+    def _get_foreground_group(self):
+        """Return the foreground process group, ``None`` if at the prompt."""
+        # The pty knows what runs in it without any help from the shell:
+        # its foreground process group is the shell's own only while the
+        # shell waits for a command.
+        if self._pid is None: return None
+        if (pty := self.get_pty()) is None: return None
         try:
             group = os.tcgetpgrp(pty.get_fd())
         except Exception:
-            return []
-        if group == self._pid: return []
+            return None
+        return None if group == self._pid else group
+
+    def get_foreground_commands(self):
+        """Return the names of the commands running, empty if at the prompt."""
+        if (group := self._get_foreground_group()) is None: return []
         # The whole group, not merely its leader, a command often being
         # a wrapper with the real thing as its child. codex, to name
         # one, is a Node script that spawns a binary of its own, and

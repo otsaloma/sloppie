@@ -16,12 +16,16 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import slop
+import textwrap
 
 from contextlib import suppress
 from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
+
+def dedent_hunk(hunk):
+    return textwrap.dedent(hunk.strip("\n"))
 
 class Comment:
 
@@ -48,7 +52,7 @@ class Comment:
         if self.path is not None:
             parts.append(f"{self.path}:")
         if self.hunk is not None:
-            parts.append(self.hunk.strip("\n"))
+            parts.append(dedent_hunk(self.hunk))
         parts.append(self.text)
         return "\n\n".join(parts)
 
@@ -67,9 +71,11 @@ class CommentDialog(Gtk.Window):
         self._branch = branch
         # Text given means an existing comment being edited.
         self._text = text
-        # Both None for a comment on the changes as a whole.
+        # Both None for a comment on the changes as a whole. The hunk is
+        # here only to be shown, so keep it as shown, dedented the same
+        # way as when handed to an agent.
         self._path = path
-        self._hunk = hunk
+        self._hunk = None if hunk is None else dedent_hunk(hunk)
         self._button = Gtk.Button(label="_Save" if text else "_Add",
                                   use_underline=True)
         # The icon theme has no up arrow that would fit a header bar,
@@ -94,7 +100,7 @@ class CommentDialog(Gtk.Window):
         """Return a line saying what the comment is on, if not the changes."""
         parts = []
         if self._hunk is not None:
-            count = len(self._hunk.strip("\n").split("\n"))
+            count = len(self._hunk.split("\n"))
             parts.append(f"{count} line" if count == 1 else f"{count} lines")
         if self._path is not None:
             parts.append(f"in {self._path}" if parts else self._path)
@@ -106,7 +112,7 @@ class CommentDialog(Gtk.Window):
         if self._path is not None:
             parts.append(GLib.markup_escape_text(self._path))
         if self._hunk is not None:
-            lines = self._hunk.strip("\n").split("\n")
+            lines = self._hunk.split("\n")
             # A tooltip is a glance, not a document, so show only the
             # first lines of the hunk and only the start of each line.
             clipped = [x[:100] + "..." if len(x) > 100 else x for x in lines[:20]]

@@ -429,8 +429,11 @@ class CommentSidebar(Gtk.Box):
         # being for other work. A sent comment is likewise done with.
         # Either is only ever sent one at a time, from its own dialog,
         # sending being deliberate at that point.
-        comments = [x for x in self._comments
-                    if x.branch == self._branch and not x.sent]
+        # Oldest first, unlike the sidebar, the agent reading the
+        # comments as one message, in the order they were written.
+        comments = sorted((x for x in self._comments
+                           if x.branch == self._branch and not x.sent),
+                          key=lambda x: x.created_at)
         if not comments: return
         parts = [x.serialize() for x in comments]
         if len(parts) > 1:

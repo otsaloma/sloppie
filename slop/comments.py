@@ -176,12 +176,12 @@ class CommentDialog(Gtk.Window):
                                 tooltip_text="Delete Comment")
             delete.connect("clicked", lambda *args: self._delete())
             header.pack_start(delete)
+        if self._move is not None:
+            header.pack_start(self._move)
         self._button.add_css_class("suggested-action")
         header.pack_end(self._button)
         # Packed after the save button, which puts it left of it, the
         # header bar filling its end from the right inwards.
-        if self._move is not None:
-            header.pack_end(self._move)
         header.pack_end(self._send)
         self.set_titlebar(header)
         self._view.add_css_class("monospace")

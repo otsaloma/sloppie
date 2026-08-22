@@ -211,6 +211,23 @@ class TestRepository(slop.test.TestCase):
     def test_untracked(self):
         assert [x.path for x in self.changes["untracked"]] == ["untracked.txt"]
 
+    def test_untracked_counts_match_git(self):
+        # The line counts of untracked files are our own, git being able
+        # to diff only one file per run, so check them against it.
+        for name, data in (("trailing.txt", b"one\ntwo\n"),
+                           ("no-trailing.txt", b"one\ntwo"),
+                           ("empty.txt", b""),
+                           ("blank.txt", b"\n\n\n"),
+                           ("binary.bin", b"\x00\x01\n\n"),
+                           ("late-nul.bin", b"x" * 9000 + b"\n\x00\n")):
+            (self.root / name).write_bytes(data)
+        for change in self.repository.list_changes()["untracked"]:
+            output = self.repository._diff(
+                "--no-index", "--numstat", "-z", "--", "/dev/null", change.path,
+                ok_codes=(0, 1))
+            counts = self.repository._parse_numstat(output).get(change.path, (0, 0))
+            assert (change.added, change.removed) == counts
+
     def test_binary_has_no_counts(self):
         change = self.get_change("staged", "binary.bin")
         assert change.added is None

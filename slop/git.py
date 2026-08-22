@@ -246,18 +246,43 @@ class Repository:
         return [FileChange(section, path, *statuses.get(path, ("M", None)), *stats[path])
                 for path in sorted(stats, key=sort_key)]
 
+    def _count_lines(self, path):
+        """Return lines added and removed by `path` being new, as numstat would."""
+        # Counted here rather than asked of git, which can only diff one
+        # file per run and so costs a process per untracked file: a
+        # repository that has picked up a few hundred of them, a build
+        # tree or an unpacked archive, spent the better part of a second
+        # on it. Read in blocks, an untracked file being anything at
+        # all, a stray gigabyte of log included.
+        added, nothing, trailing = 0, True, True
+        try:
+            with open(self.root / path, "rb") as f:
+                while block := f.read(1 << 16):
+                    # Binary as git calls it: a zero byte anywhere in
+                    # the first 8000, which is all that it sniffs.
+                    if nothing and b"\0" in block[:8000]:
+                        return None, None
+                    added += block.count(b"\n")
+                    nothing = False
+                    trailing = block.endswith(b"\n")
+        except Exception:
+            # Gone since it was listed, or unreadable.
+            return None, None
+        # git counts a last line that no newline ends as a line even so.
+        return added if nothing or trailing else added + 1, 0
+
     def _list_untracked_changes(self):
-        changes = []
         output = self._git("ls-files", "--others", "--exclude-standard", "-z")
-        for path in sorted((x for x in output.split("\0") if x), key=sort_key):
-            # There is no cheaper way to get a line count for an
-            # untracked file that agrees with git on what is binary.
-            stats = self._parse_numstat(self._diff(
-                "--no-index", "--numstat", "-z", "--", "/dev/null", path,
-                ok_codes=(0, 1)))
-            counts = stats.get(path, (None, None))
-            changes.append(FileChange("untracked", path, "A", None, *counts))
-        return changes
+        paths = sorted((x for x in output.split("\0") if x), key=sort_key)
+        # Counting means reading every one of them, which is nothing for
+        # the handful that a repository normally has and a great deal
+        # for the thousands that a virtualenv or a node_modules left out
+        # of .gitignore brings. Past a hundred the total is no use to
+        # read anyway, so only say of each that it is one file added.
+        if len(paths) > 100:
+            return [FileChange("untracked", x, "A", None, 1, 0) for x in paths]
+        return [FileChange("untracked", x, "A", None, *self._count_lines(x))
+                for x in paths]
 
     def list_changes(self):
         """Return changed files in all sections."""

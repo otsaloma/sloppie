@@ -29,6 +29,24 @@ class TestWindow(slop.test.TestCase):
     def test_refresh(self):
         self.window._page.refresh()
 
+    def test_closing_the_task_shown_returns_to_the_dashboard(self):
+        # Nothing runs in the terminals of a window never shown, so this
+        # is the path that closes without asking anything.
+        assert not self.window._page.is_running()
+        self.window.lookup_action("close-task").activate(None)
+        assert self.window._page is None
+        assert not self.window._tasks
+
+    def test_closing_a_task_is_disabled_on_the_dashboard(self):
+        assert self.window.lookup_action("close-task").get_enabled()
+        self.window._show_dashboard()
+        assert not self.window.lookup_action("close-task").get_enabled()
+
+    def test_quitting_asks_nothing_without_tasks(self):
+        self.window.close_task(str(self.root))
+        # False lets the close go ahead, no question asked.
+        assert self.window._on_close_request(self.window) is False
+
     def test_a_change_is_selected(self):
         assert self.window._page._file_sidebar.get_selected_change() is not None
 

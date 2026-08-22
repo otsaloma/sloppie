@@ -328,6 +328,13 @@ class Terminal(Vte.Terminal):
             return None
         return None if group == self._pid else group
 
+    def is_running(self):
+        """Return ``True`` if a command runs here, the shell itself aside."""
+        # Asked of the terminal rather than taken from the poll, which
+        # can be a few seconds behind, this being what a confirmation
+        # to stop the thing hangs on.
+        return self._get_foreground_group() is not None
+
     def get_command(self):
         """Return the name of the command running, ``None`` if at the prompt."""
         # Whatever the poll last saw, which is the command that the

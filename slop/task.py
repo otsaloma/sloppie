@@ -520,6 +520,10 @@ class TaskPage(Gtk.Overlay):
         self.status = status
         self.emit("changed")
 
+    def is_running(self):
+        """Return ``True`` if a command runs in any of the terminals."""
+        return any(x.is_running() for x in self._terminals)
+
     def get_attention(self):
         """Return ``True`` if any terminal of this task rang unseen."""
         return any(self.stack.get_page(x).get_needs_attention()

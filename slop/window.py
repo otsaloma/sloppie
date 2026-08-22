@@ -69,6 +69,7 @@ class Window(Gtk.ApplicationWindow):
         self._update_dashboard()
         # A window gone takes its tasks with it, which have to be told,
         # a task outliving the widget tree it was part of.
+        self.connect("close-request", self._on_close_request)
         self.connect("destroy", self._on_destroy)
 
     def _on_destroy(self, window):
@@ -143,6 +144,29 @@ class Window(Gtk.ApplicationWindow):
         self._dashboard.focus()
         self._sync_header()
 
+    def _on_close_task_activate(self, *args):
+        """Close the task shown, asking first if something runs in it."""
+        page = self._page
+        if not page.is_running() or slop.util.confirm(
+                self,
+                f"Close {page.repository.root.name}?",
+                "Whatever is running in its terminals will be stopped.",
+                "Close"):
+            self.close_task(str(page.repository.root))
+
+    def _on_close_request(self, window):
+        """Ask before quitting with tasks open, and stop if told to."""
+        # Reached from Ctrl+Q, from the header bar's close button and
+        # from the window manager, which all mean the same thing here,
+        # the application having the one window.
+        if not self._tasks: return False
+        count = len(self._tasks)
+        return not slop.util.confirm(
+            self, "Quit Sloppie?",
+            f"{count} task is open and will be closed." if count == 1 else
+            f"{count} tasks are open and will be closed.",
+            "Quit")
+
     def _on_task_changed(self, task):
         # The header bar only ever shows the task on screen, but the
         # dashboard shows them all, and so needs every one of these.
@@ -194,12 +218,21 @@ class Window(Gtk.ApplicationWindow):
             shortcuts.add_shortcut(Gtk.Shortcut(
                 trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
                 action=Gtk.NamedAction.new(f"win.{name}")))
-        # Closing the only window quits the application, so both of the
-        # customary accelerators can just close the window.
-        for accelerator in ("<Control>w", "<Control>q"):
-            shortcuts.add_shortcut(Gtk.Shortcut(
-                trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
-                action=Gtk.NamedAction.new("window.close")))
+        # Closing one task, which is what there is to close, the window
+        # holding all of them. Disabled on the dashboard, where there is
+        # no task shown to be the one meant.
+        action = Gio.SimpleAction(name="close-task", enabled=False)
+        action.connect("activate", self._on_close_task_activate)
+        self.add_action(action)
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control>w"),
+            action=Gtk.NamedAction.new("win.close-task")))
+        # Quitting, the application having the one window. Closing that
+        # window is the same thing and asks the same question, so leave
+        # both to it rather than have an action of our own.
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Control>q"),
+            action=Gtk.NamedAction.new("window.close")))
         # This is the toggle in the header bar menu, whose state follows
         # the task shown, being read from its repository's config.
         action = Gio.SimpleAction.new_stateful(
@@ -376,9 +409,9 @@ class Window(Gtk.ApplicationWindow):
         self._header.set_title_widget(self._switcher if page else None)
         self.lookup_action("dashboard").set_state(
             GLib.Variant.new_boolean(page is None))
-        for name in ("add-comment", "commit", "configure", "configure-run",
-                     "delete-sent-comments", "edit", "focus", "run",
-                     "send-comments", "switch-tab", "wrap-lines"):
+        for name in ("add-comment", "close-task", "commit", "configure",
+                     "configure-run", "delete-sent-comments", "edit", "focus",
+                     "run", "send-comments", "switch-tab", "wrap-lines"):
             self.lookup_action(name).set_enabled(page is not None)
         # Allow only the file operations that apply to the file
         # selected. Staged changes are reverted by unstaging them first.

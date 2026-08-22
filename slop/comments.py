@@ -72,11 +72,16 @@ class CommentDialog(Gtk.Window):
         "sent": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
     }
 
-    def __init__(self, parent, branch, current, text="", path=None, hunk=None):
+    def __init__(self, parent, branch, current,
+                 text="", path=None, hunk=None, sent=False):
+
         GObject.GObject.__init__(self)
         self._branch = branch
         # Text given means an existing comment being edited.
         self._text = text
+        # A comment already handed to an agent, which is done with as
+        # far as the user is concerned.
+        self._sent = sent
         # Both None for a comment on the changes as a whole. The hunk is
         # here only to be shown, so keep it as shown, dedented the same
         # way as when handed to an agent.
@@ -254,13 +259,15 @@ class CommentDialog(Gtk.Window):
         self.close()
 
     def _delete(self):
-        """Have the comment deleted if confirmed."""
-        # A comment can be a lot of writing and there's no undo.
-        if not slop.util.confirm(self, "Delete comment?",
-                                 "The comment will be permanently lost.",
-                                 "Delete"): return
-        self.emit("deleted")
-        self.close()
+        """Have the comment deleted, asking first unless it has been sent."""
+        # A comment can be a lot of writing and there's no undo, but one
+        # already sent has served its purpose and is only kept around to
+        # be deleted, so don't ask about that one.
+        if self._sent or slop.util.confirm(self, "Delete comment?",
+                                           "The comment will be permanently lost.",
+                                           "Delete"):
+            self.emit("deleted")
+            self.close()
 
 class CommentSidebar(Gtk.Box):
 
@@ -392,7 +399,8 @@ class CommentSidebar(Gtk.Box):
         # The branch of the comment, not the current one, that being
         # what the comment was written against and still says.
         dialog = CommentDialog(self.get_root(), comment.branch, self._branch,
-                               comment.text, comment.path, comment.hunk)
+                               comment.text, comment.path, comment.hunk,
+                               comment.sent)
 
         def on_saved(dialog, text):
             comment.text = text

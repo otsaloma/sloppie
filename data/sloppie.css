@@ -69,18 +69,78 @@ stackswitcher > button.text-button.slop-narrow-tab {
   line-height: 1.4;
 }
 
-.slop-recent-list {
-  min-width: 300px;
+.slop-attention-dot {
+  background-color: @theme_selected_bg_color;
+  border-radius: 99px;
+  min-height: 6px;
+  min-width: 6px;
 }
 
-/* Override 'rich-list' generous spacing. */
-.slop-recent-list > row > box {
-  border-spacing: 6px;
+.slop-task-card {
+  min-width: 400px;
 }
 
-.slop-recent-path {
-  font-size: smaller;
+.slop-task-recent {
   opacity: 0.5;
+}
+
+.slop-task-close {
+  margin-left: -6px;
+  margin-right: -6px;
+  min-height: 24px;
+  min-width: 24px;
+}
+
+.slop-task-name {
+  font-weight: 500;
+}
+
+.slop-task-waiting {
+  background-color: mix(@theme_base_color, @success_color, 0.1);
+  border: 1px solid mix(@theme_base_color, @success_color, 0.3);
+  border-radius: 4px;
+  color: @success_color;
+  padding: 1px 5px;
+}
+
+.slop-task-working {
+  background-color: mix(@theme_base_color, @theme_fg_color, 0.1);
+  border: 1px solid mix(@theme_base_color, @theme_fg_color, 0.3);
+  border-radius: 4px;
+  color: @theme_fg_color;
+  padding: 1px 5px;
+}
+
+.slop-task-card .monospace {
+  font-size: 11px;
+}
+
+.slop-task-path, .slop-task-none {
+  opacity: 0.5;
+}
+
+.slop-task-comments {
+  background-color: mix(@theme_base_color, @theme_selected_bg_color, 0.1);
+  border: 1px solid mix(@theme_base_color, @theme_selected_bg_color, 0.3);
+  border-radius: 4px;
+  color: @theme_selected_bg_color;
+  padding: 1px 5px;
+}
+
+.slop-task-lines-added {
+  background-color: mix(@theme_base_color, @success_color, 0.1);
+  border: 1px solid mix(@theme_base_color, @success_color, 0.3);
+  border-radius: 4px;
+  color: @success_color;
+  padding: 1px 5px;
+}
+
+.slop-task-lines-removed {
+  background-color: mix(@theme_base_color, @error_color, 0.1);
+  border: 1px solid mix(@theme_base_color, @error_color, 0.3);
+  border-radius: 4px;
+  color: @error_color;
+  padding: 1px 5px;
 }
 
 .slop-comment-sidebar {

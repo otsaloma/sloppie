@@ -293,6 +293,10 @@ class CommentSidebar(Gtk.Box):
         self._placeholder.set_vexpand(True)
         self.append(self._placeholder)
 
+    def count_unsent(self):
+        """Return how many comments of the current branch wait to be sent."""
+        return sum(x.branch == self._branch and not x.sent for x in self._comments)
+
     def _get_task(self):
         """Return the task this sidebar belongs to."""
         # The task, not the window, the window holding several of them

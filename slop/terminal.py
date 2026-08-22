@@ -16,7 +16,9 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import signal
 import slop
+import time
 
 from gi.repository import Gdk
 from gi.repository import GLib
@@ -24,7 +26,12 @@ from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
 from gi.repository import Vte
+from contextlib import suppress
 from pathlib import Path
+
+# The coding agents known by name: what a terminal is here to run,
+# what a comment can be sent to and what has a status worth showing.
+AGENTS = ("claude", "codex")
 
 def parse_color(color):
     """Return hexadecimal `color` as a `Gdk.RGBA`."""
@@ -53,7 +60,10 @@ class Terminal(Vte.Terminal):
         GObject.GObject.__init__(self)
         self._directory = directory
         self._command = None
+        self._command_group = None
+        self._command_started = None
         self._pid = None
+        self._poll_source = None
         self._spawned = False
         self._init_properties()
         self._init_colors()
@@ -161,28 +171,69 @@ class Terminal(Vte.Terminal):
         # the shortest command that can be noticed at all, which suits
         # us: a command that returns in the blink of an eye is not one
         # worth a notification.
-        source = GLib.timeout_add_seconds(3, self._on_poll_timeout)
-        self.connect("destroy", lambda *args: GLib.source_remove(source))
+        self._poll_source = GLib.timeout_add_seconds(3, self._on_poll_timeout)
+
+    def close(self):
+        """Hang up the shell and stop watching it."""
+        # Explicitly rather than when the widget is disposed: a terminal
+        # is kept alive by the handlers its own children and its task
+        # hold on it, so being taken out of the window is not enough.
+        if self._poll_source is not None:
+            GLib.source_remove(self._poll_source)
+            self._poll_source = None
+        if self._pid is None: return
+        # SIGHUP as closing a terminal window does, to the shell and to
+        # whatever it is running, which has a group of its own and would
+        # otherwise be left behind by a shell that doesn't pass it on.
+        groups = {self._get_foreground_group(), os.getpgid(self._pid)}
+        for group in groups - {None}:
+            with suppress(Exception):
+                os.killpg(group, signal.SIGHUP)
+        self._pid = None
 
     def _on_poll_timeout(self):
         if (group := self._get_foreground_group()) is None:
             # Back at the prompt, so whatever ran there is done.
+            self._command_group = None
+            self._command_started = None
             if self._command is not None:
                 command, self._command = self._command, None
                 self.emit("command-finished", command)
         else:
-            try:
-                # The leader of the group is the command that the shell
-                # started, which is what the user typed, the rest of the
-                # group being that command's own children.
-                self._command = (Path("/proc") / str(group) / "comm").read_text("utf-8").strip()
-            except Exception:
-                # The leader can be gone while the rest of the group
-                # still runs, as at the head of a pipeline, in which
-                # case the name from the previous poll is the best we
-                # have. A command never named is never told about.
-                pass
+            if group != self._command_group:
+                # A group of its own means a command of its own, which
+                # is where the time it has been running starts from.
+                self._command_group = group
+                self._command_started = time.monotonic()
+            if (command := self._get_command_name(group)) is not None:
+                self._command = command
         return GLib.SOURCE_CONTINUE
+
+    def _get_command_name(self, group):
+        """Return the name of the command running in `group`, if it can be told."""
+        # Walk down from the leader rather than scan all of /proc for
+        # the group, this being on the poll: a few reads instead of one
+        # per process, which measures a hundred times cheaper. It finds
+        # the leader's descendants and not its siblings, but a wrapper's
+        # agent is always below it, which is what we are here for.
+        commands, todo = [], [group]
+        while todo:
+            pid = str(todo.pop())
+            with suppress(Exception):
+                commands.append((Path("/proc") / pid / "comm").read_text("utf-8").strip())
+                todo += (Path("/proc") / pid / "task" / pid / "children").read_text("utf-8").split()
+        # An agent behind a wrapper is named for the wrapper: codex is a
+        # Node script whose leader reads 'MainThread', that being Node's
+        # main thread. The agent itself runs below it all the same, so
+        # take its name over the leader's wherever one of them is there.
+        if agent := next((x for x in commands if x in AGENTS), None):
+            return agent
+        # The leader is the command that the shell started, which is what
+        # the user typed, and the first one walked to above. It can be
+        # gone while the rest of the group still runs, as at the head of
+        # a pipeline, in which case the name from the previous poll is
+        # the best we have. A command never named is never told about.
+        return commands[0] if commands else None
 
     def _init_shortcuts(self):
         # VTE has the clipboard API, but no keybindings for it, those
@@ -276,6 +327,17 @@ class Terminal(Vte.Terminal):
         except Exception:
             return None
         return None if group == self._pid else group
+
+    def get_command(self):
+        """Return the name of the command running, ``None`` if at the prompt."""
+        # Whatever the poll last saw, which is the command that the
+        # shell started, not the children it went on to start itself.
+        return self._command
+
+    def get_command_elapsed(self):
+        """Return seconds the command running has been, ``None`` if at the prompt."""
+        if self._command_started is None: return None
+        return time.monotonic() - self._command_started
 
     def get_foreground_commands(self):
         """Return the names of the commands running, empty if at the prompt."""

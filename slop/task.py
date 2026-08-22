@@ -27,6 +27,18 @@ from slop import recent
 from slop.git import DiffLine
 from slop.git import parse_diff
 from slop.git import SECTIONS
+from slop.terminal import AGENTS
+
+def format_elapsed(seconds):
+    """Return `seconds` as ``[HH:]MM:SS``, ``None`` staying ``None``."""
+    if seconds is None: return None
+    hours, seconds = divmod(round(seconds), 3600)
+    minutes, seconds = divmod(seconds, 60)
+    # The hours only once there are any, and whichever field comes
+    # first left unpadded, the ones that follow it padded as a clock
+    # has them.
+    if hours: return f"{hours:d}:{minutes:02d}:{seconds:02d}"
+    return f"{minutes:d}:{seconds:02d}"
 
 class TaskLayout(Gtk.OverlayLayout):
 
@@ -63,6 +75,18 @@ class TaskPage(Gtk.Overlay):
         self.repository = repository
         self.branch = None
         self.config = slop.Config(repository)
+        # What the dashboard shows on this task's card, kept up to date
+        # by the poll below for as long as the task is open, whether or
+        # not it is the one on screen.
+        self.command = None
+        self.comments = 0
+        self.elapsed = None
+        self.lines_added = 0
+        self.lines_removed = 0
+        # Either 'waiting', for an agent that has rung and wants the
+        # user, or 'working', for anything else that runs. The card
+        # makes a CSS class of the value, so the two go together.
+        self.status = "working"
         # The state of the window's wrap toggle while this task is the
         # one shown, starting out as it was left for this repository.
         self.wrap_lines = self.config.read_item("wrap-lines", True)
@@ -74,6 +98,7 @@ class TaskPage(Gtk.Overlay):
         self._file_sidebar = slop.FileSidebar()
         self._fingerprint = None
         self._paned = None
+        self._poll_source = None
         self._right_paned = None
         self._shown_change = None
         self._stack_handler = None
@@ -139,14 +164,24 @@ class TaskPage(Gtk.Overlay):
         self._stack_handler = self.stack.connect(
             "notify::visible-child", lambda *args: self.focus_shown_view())
         # Looking at a tab is seeing to whatever rang there.
-        self.stack.connect("notify::visible-child", lambda *args:
-                           self.stack.get_page(self.stack.get_visible_child())
-                           .set_needs_attention(False))
+        self.stack.connect("notify::visible-child",
+                           lambda *args: self.seen())
         # Poll instead of watching the working tree, which would mean a
         # watch on each of possibly very many directories. A poll costs
         # one git command that skips ignored files, such as node_modules.
-        source = GLib.timeout_add_seconds(3, self._on_poll_timeout)
-        self.connect("destroy", lambda *args: GLib.source_remove(source))
+        self._poll_source = GLib.timeout_add_seconds(3, self._on_poll_timeout)
+
+    def close(self):
+        """Stop polling and hang up the shells, the task being closed."""
+        # Explicitly rather than when the widget is disposed: the task is
+        # kept alive by the handlers it holds on its own children, which
+        # reference it back, so being taken out of the window leaves it
+        # polling and its shells running where they cannot be reached.
+        if self._poll_source is not None:
+            GLib.source_remove(self._poll_source)
+            self._poll_source = None
+        for terminal in self._terminals:
+            terminal.close()
 
     def get_selected_section(self):
         """Return the section of the file selected, if any."""
@@ -283,7 +318,7 @@ class TaskPage(Gtk.Overlay):
         # to an agent that is actually running and waiting for a prompt.
         terminal = self._terminals[0]
         commands = terminal.get_foreground_commands()
-        if not any(x in ("claude", "codex") for x in commands):
+        if not any(x in AGENTS for x in commands):
             self._toast.flash("No agent running in the terminal")
             return False
         # Show the terminal, the paste being there to be read and sent
@@ -371,8 +406,18 @@ class TaskPage(Gtk.Overlay):
         # The switcher marks the tab with a dot, but only as long as it's
         # not the tab on screen, so don't mark the one being looked at,
         # which would leave a mark to appear on switching away from it.
-        if page.get_child() is not self.stack.get_visible_child():
+        # A terminal is on screen only if its own tab is the one shown
+        # and this task is the one the window shows, both of which the
+        # terminal being mapped says in one.
+        if not terminal.get_mapped():
             page.set_needs_attention(True)
+            # An agent that rang is waiting, which the card should say
+            # at once rather than at the next poll, that being the very
+            # moment the user is waited on.
+            self._update_status()
+            # The card in the dashboard shows this too, and the task
+            # rung at is likely not the one the user is looking at.
+            self.emit("changed")
         # Sitting at this very terminal, the user has seen it all
         # happen, so skip the notification rather than pop one up on top
         # of what it's about.
@@ -435,6 +480,9 @@ class TaskPage(Gtk.Overlay):
         self._edit(str(self.config.path))
 
     def _on_poll_timeout(self):
+        # The status is polled always, the working tree only when it has
+        # actually changed, that being the expensive one to reload.
+        self._update_status()
         try:
             fingerprint = self.repository.get_fingerprint()
         except Exception as error:
@@ -446,6 +494,46 @@ class TaskPage(Gtk.Overlay):
         if fingerprint != self._fingerprint:
             self.refresh()
         return GLib.SOURCE_CONTINUE
+
+    def _update_status(self):
+        """Work out what the dashboard should say about this task."""
+        # Outrageously simple on purpose: an agent is waiting for the
+        # user if it rang, that being the only thing it tells us, and
+        # anything else running, be it an agent thinking or a build, is
+        # working and wants nothing.
+        command = self._terminals[0].get_command()
+        status = ("waiting"
+                  if command in AGENTS and
+                  self.stack.get_page(self.stack.get_child_by_name("terminal-1"))
+                            .get_needs_attention() else
+                  "working")
+        elapsed = format_elapsed(self._terminals[0].get_command_elapsed())
+        comments = self._comment_sidebar.count_unsent()
+        # Compare what is shown rather than what it was worked out from,
+        # so that nothing is told of a change until the card would
+        # actually read differently.
+        if (command, comments, elapsed, status) == \
+           (self.command, self.comments, self.elapsed, self.status): return
+        self.command = command
+        self.comments = comments
+        self.elapsed = elapsed
+        self.status = status
+        self.emit("changed")
+
+    def get_attention(self):
+        """Return ``True`` if any terminal of this task rang unseen."""
+        return any(self.stack.get_page(x).get_needs_attention()
+                   for x in self.stack)
+
+    def seen(self):
+        """Mark whatever the view shown rang about as seen."""
+        # Called when the tab changes and when the window turns to this
+        # task, both of which put the view in front of the user.
+        self.stack.get_page(self.stack.get_visible_child()).set_needs_attention(False)
+        # An agent that rang is waiting, so having seen to it, the card
+        # in the dashboard has a different color to show.
+        self._update_status()
+        self.emit("changed")
 
     def refresh(self):
         """Reload the list of changed files from git."""
@@ -460,6 +548,23 @@ class TaskPage(Gtk.Overlay):
             print(f"sloppie: {error}", file=sys.stderr)
             return
         self.branch = branch
+        # The card in the dashboard shows the whole of the diff as one
+        # figure, both sections and the untracked files together.
+        self.lines_added = self.lines_removed = 0
+        for change in (x for y in changes.values() for x in y):
+            if change.added or change.removed:
+                # Binary files have no line counts, hence the fallbacks.
+                self.lines_added += change.added or 0
+                self.lines_removed += change.removed or 0
+            elif change.status == "D":
+                # A binary file gone, or an empty one.
+                self.lines_removed += 1
+            else:
+                # A binary file changed or a file merely renamed: no
+                # lines to count, but a change that should be seen all
+                # the same, the figure being there to say that there is
+                # something rather than exactly how much.
+                self.lines_added += 1
         # Comments are written against a branch, so switching branch
         # puts the ones shown aside and brings back any of the new one.
         self._comment_sidebar.set_branch(branch)

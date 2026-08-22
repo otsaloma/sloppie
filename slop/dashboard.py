@@ -56,9 +56,13 @@ class TaskCard(Gtk.Frame):
         # A grid, so that the command lines up under the name and the
         # diff under the path, with the close button spanning both rows.
         grid = Gtk.Grid(column_spacing=9, row_spacing=9)
-        grid.set_margin_bottom(9)
         grid.set_margin_start(9)
-        grid.set_margin_top(9)
+        if self.task:
+            # With one row only, the close button is the tallest thing
+            # in it and its own padding gives the name the same air that
+            # these margins would, only twice over.
+            grid.set_margin_bottom(9)
+            grid.set_margin_top(9)
         # The name and the branch as one, which together say which task
         # this is, one repository having several of them after part two.
         self._title = Gtk.Label(label=self.path.name, xalign=0)
@@ -81,7 +85,23 @@ class TaskCard(Gtk.Frame):
         self._close.add_css_class("flat")
         self._close.add_css_class("slop-task-close")
         self._close.connect("clicked", self._on_close_clicked)
-        grid.attach(self._close, 2, 0, 1, 2)
+        # Only recent means only the one row: where the repository is,
+        # there being no state to tell about a task that isn't open.
+        grid.attach(self._close, 2, 0, 1, 2 if self.task else 1)
+        if self.task:
+            self._init_widgets_status(grid)
+        self._row = Gtk.ListBoxRow(child=grid)
+        self._listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        # 'rich-list' gives the tall row and the padding around it.
+        self._listbox.add_css_class("rich-list")
+        self._listbox.connect("row-activated", self._on_row_activated)
+        self._listbox.append(self._row)
+        self.set_child(self._listbox)
+        # Clip the row to the rounded corners of the frame, which it
+        # would otherwise square off when hovered.
+        self.set_overflow(Gtk.Overflow.HIDDEN)
+
+    def _init_widgets_status(self, grid):
         # What is running and for how long as one, the time telling a
         # busy agent from a stuck one. One label, so that the status
         # boxes the two of them together; aligned to the start, so that
@@ -109,29 +129,12 @@ class TaskCard(Gtk.Frame):
         self._comments.add_css_class("slop-task-comments")
         pending.append(self._comments)
         # Stands in for all three when there is none of them to show,
-        # which is not the same as having nothing to show at all, as a
-        # repository that is only recent has.
+        # so that the row is never blank on one side.
         self._nothing = Gtk.Label(label=NOTHING, visible=False)
         self._nothing.add_css_class("monospace")
         self._nothing.add_css_class("slop-task-none")
         pending.append(self._nothing)
         grid.attach(pending, 1, 1, 1, 1)
-        self._row = Gtk.ListBoxRow(child=grid)
-        self._listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
-        # 'rich-list' gives the tall row and the padding around it.
-        self._listbox.add_css_class("rich-list")
-        self._listbox.connect("row-activated", self._on_row_activated)
-        self._listbox.append(self._row)
-        self.set_child(self._listbox)
-        # Clip the row to the rounded corners of the frame, which it
-        # would otherwise square off when hovered.
-        self.set_overflow(Gtk.Overflow.HIDDEN)
-        if self.task is None:
-            # Nothing to update later either, so the em dashes that
-            # stand in for what an open task would show are set here.
-            self._running.set_label(NOTHING)
-            self._running.add_css_class("slop-task-none")
-            self._nothing.set_visible(True)
 
     def _get_directory(self):
         """Return the directory holding the repository, home as a tilde."""

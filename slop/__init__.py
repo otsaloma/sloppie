@@ -47,6 +47,7 @@ from slop.terminal import Terminal
 from slop.toast import Toast
 from slop.about import AboutDialog
 from slop.commit import CommitDialog
+from slop.task import TaskPage
 from slop.window import Window
 from slop.app import Application
 

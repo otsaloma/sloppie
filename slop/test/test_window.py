@@ -38,7 +38,7 @@ class TestOpenView(slop.test.TestCase):
     def test_activating_a_recent_row_opens_it(self):
         listbox = self._find_listbox(self.window.get_child())
         listbox.emit("row-activated", listbox.get_row_at_index(0))
-        assert self.window.repository.root == self.root
+        assert self.window._page.repository.root == self.root
 
     def _find_listbox(self, widget):
         if isinstance(widget, Gtk.ListBox): return widget
@@ -56,28 +56,28 @@ class TestWindow(slop.test.TestCase):
         self.window.destroy()
 
     def test_refresh(self):
-        self.window.refresh()
+        self.window._page.refresh()
 
     def test_a_change_is_selected(self):
-        assert self.window._file_sidebar.get_selected_change() is not None
+        assert self.window._page._file_sidebar.get_selected_change() is not None
 
     def test_selecting_shows_a_diff(self):
-        sidebar = self.window._file_sidebar
+        sidebar = self.window._page._file_sidebar
         model = sidebar._selection.get_model()
-        buffer = self.window._diff_view.get_buffer()
+        buffer = self.window._page._diff_view.get_buffer()
         for i in range(model.get_n_items()):
             sidebar._selection.set_selected(i)
             assert buffer.get_text(*buffer.get_bounds(), False)
 
     def test_selecting_nothing_clears_the_diff(self):
-        self.window._file_sidebar._selection.unselect_all()
-        buffer = self.window._diff_view.get_buffer()
+        self.window._page._file_sidebar._selection.unselect_all()
+        buffer = self.window._page._diff_view.get_buffer()
         assert buffer.get_text(*buffer.get_bounds(), False) == ""
 
     def test_diff_view_position_matches_the_gutter(self):
-        sidebar = self.window._file_sidebar
+        sidebar = self.window._page._file_sidebar
         model = sidebar._selection.get_model()
-        view = self.window._diff_view
+        view = self.window._page._diff_view
         buffer = view.get_buffer()
         for i in range(model.get_n_items()):
             sidebar._selection.set_selected(i)
@@ -91,9 +91,9 @@ class TestWindow(slop.test.TestCase):
                     assert view.get_position() == (line.new, 1)
 
     def test_diff_view_line_numbers_match(self):
-        sidebar = self.window._file_sidebar
+        sidebar = self.window._page._file_sidebar
         sidebar.select_change(sidebar.get_selected_change())
-        buffer = self.window._diff_view.get_buffer()
-        for gutter in (self.window._diff_view._old_gutter,
-                       self.window._diff_view._new_gutter):
+        buffer = self.window._page._diff_view.get_buffer()
+        for gutter in (self.window._page._diff_view._old_gutter,
+                       self.window._page._diff_view._new_gutter):
             assert len(gutter.lines) == buffer.get_line_count()

@@ -293,6 +293,12 @@ class CommentSidebar(Gtk.Box):
         self._placeholder.set_vexpand(True)
         self.append(self._placeholder)
 
+    def _get_task(self):
+        """Return the task this sidebar belongs to."""
+        # The task, not the window, the window holding several of them
+        # and only this one's terminals being the agent to send to.
+        return self.get_ancestor(slop.TaskPage)
+
     def _get_file(self):
         """Return the path of the file the comments are kept in."""
         # One file for the whole repository rather than one per branch:
@@ -418,7 +424,7 @@ class CommentSidebar(Gtk.Box):
         """Hand `comment` to the agent, marking it sent if that worked."""
         # A comment that didn't go stays as it was, so that the user can
         # start the agent and send it again.
-        if not self.get_root().send_to_agent(comment.serialize()): return
+        if not self._get_task().send_to_agent(comment.serialize()): return
         comment.sent = True
         self._write()
         self._update_cards()
@@ -444,7 +450,7 @@ class CommentSidebar(Gtk.Box):
             parts = [f"# COMMENT {i}\n\n{x}"
                      for i, x in enumerate(parts, start=1)]
         text = "\n\n".join(parts)
-        if not self.get_root().send_to_agent(text): return
+        if not self._get_task().send_to_agent(text): return
         for comment in comments:
             comment.sent = True
         self._write()

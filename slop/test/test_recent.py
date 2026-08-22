@@ -38,6 +38,10 @@ class TestRecent(slop.test.TestCase):
         paths = recent.list_repositories()
         assert paths.count(self.root) == 1
 
+    def test_the_repository_removed_is_gone(self):
+        recent.remove_repository(self.root)
+        assert self.root not in recent.list_repositories()
+
     def test_old_repositories_are_forgotten(self):
         items = json.loads(recent.PATH.read_text("utf-8"))
         for item in items:

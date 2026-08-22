@@ -31,12 +31,13 @@ Document what you do take below.
 | Ctrl+M        | Add comment  | tty ^M: same as a plain Enter, Return unharmed  |
 | Ctrl+PageDown | Next tab     | nothing in readline or tty; TUI apps lose it    |
 | Ctrl+PageUp   | Previous tab | nothing in readline or tty; TUI apps lose it    |
-| Ctrl+Q        | Close window | tty XON: resume output stopped by Ctrl+S        |
+| Ctrl+Q        | Quit         | tty XON: resume output stopped by Ctrl+S        |
 | Ctrl+S        | Stage file   | tty XOFF: stop output until Ctrl+Q              |
 | Ctrl+U        | Unstage file | readline unix-line-discard: erase to line start |
-| Ctrl+W        | Close window | readline unix-word-rubout: erase preceding word |
+| Ctrl+W        | Close task   | readline unix-word-rubout: erase preceding word |
 | Shift+Ctrl+C  | Copy         | tty ^C: interrupt, plain Ctrl+C unharmed        |
 | Shift+Ctrl+V  | Paste        | readline quoted-insert, plain Ctrl+V unharmed   |
+| F4            | Dashboard    | nothing in readline or tty; TUI apps lose F4    |
 | F5            | Run command  | nothing in readline or tty; TUI apps lose F5    |
 | Shift+F5      | Set command  | same as F5: nothing in readline or tty          |
 

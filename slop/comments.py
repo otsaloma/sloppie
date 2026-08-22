@@ -57,7 +57,13 @@ class Comment:
         if self.path is not None:
             parts.append(f"{self.path}:")
         if self.hunk is not None:
-            parts.append(dedent_hunk(self.hunk))
+            # Indented to make it a Markdown code block: an agent takes
+            # what it is handed for Markdown, where a line starting with
+            # '+' or '-' is a list item, which turns a hunk into a
+            # bullet list with the markers and the indentation gone.
+            # Four spaces is the least that works, three or fewer still
+            # leaving room for a list marker to be read.
+            parts.append(textwrap.indent(dedent_hunk(self.hunk), "    "))
         parts.append(self.text)
         return "\n\n".join(parts)
 
@@ -72,11 +78,16 @@ class CommentDialog(Gtk.Window):
         "sent": (GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,)),
     }
 
-    def __init__(self, parent, branch, current, text="", path=None, hunk=None):
+    def __init__(self, parent, branch, current,
+                 text="", path=None, hunk=None, sent=False):
+
         GObject.GObject.__init__(self)
         self._branch = branch
         # Text given means an existing comment being edited.
         self._text = text
+        # A comment already handed to an agent, which is done with as
+        # far as the user is concerned.
+        self._sent = sent
         # Both None for a comment on the changes as a whole. The hunk is
         # here only to be shown, so keep it as shown, dedented the same
         # way as when handed to an agent.
@@ -254,13 +265,15 @@ class CommentDialog(Gtk.Window):
         self.close()
 
     def _delete(self):
-        """Have the comment deleted if confirmed."""
-        # A comment can be a lot of writing and there's no undo.
-        if not slop.util.confirm(self, "Delete comment?",
-                                 "The comment will be permanently lost.",
-                                 "Delete"): return
-        self.emit("deleted")
-        self.close()
+        """Have the comment deleted, asking first unless it has been sent."""
+        # A comment can be a lot of writing and there's no undo, but one
+        # already sent has served its purpose and is only kept around to
+        # be deleted, so don't ask about that one.
+        if self._sent or slop.util.confirm(self, "Delete comment?",
+                                           "The comment will be permanently lost.",
+                                           "Delete"):
+            self.emit("deleted")
+            self.close()
 
 class CommentSidebar(Gtk.Box):
 
@@ -292,6 +305,16 @@ class CommentSidebar(Gtk.Box):
         self._placeholder.add_css_class("dim-label")
         self._placeholder.set_vexpand(True)
         self.append(self._placeholder)
+
+    def count_unsent(self):
+        """Return how many comments of the current branch wait to be sent."""
+        return sum(x.branch == self._branch and not x.sent for x in self._comments)
+
+    def _get_task(self):
+        """Return the task this sidebar belongs to."""
+        # The task, not the window, the window holding several of them
+        # and only this one's terminals being the agent to send to.
+        return self.get_ancestor(slop.TaskPage)
 
     def _get_file(self):
         """Return the path of the file the comments are kept in."""
@@ -382,7 +405,8 @@ class CommentSidebar(Gtk.Box):
         # The branch of the comment, not the current one, that being
         # what the comment was written against and still says.
         dialog = CommentDialog(self.get_root(), comment.branch, self._branch,
-                               comment.text, comment.path, comment.hunk)
+                               comment.text, comment.path, comment.hunk,
+                               comment.sent)
 
         def on_saved(dialog, text):
             comment.text = text
@@ -418,7 +442,7 @@ class CommentSidebar(Gtk.Box):
         """Hand `comment` to the agent, marking it sent if that worked."""
         # A comment that didn't go stays as it was, so that the user can
         # start the agent and send it again.
-        if not self.get_root().send_to_agent(comment.serialize()): return
+        if not self._get_task().send_to_agent(comment.serialize()): return
         comment.sent = True
         self._write()
         self._update_cards()
@@ -444,7 +468,7 @@ class CommentSidebar(Gtk.Box):
             parts = [f"# COMMENT {i}\n\n{x}"
                      for i, x in enumerate(parts, start=1)]
         text = "\n\n".join(parts)
-        if not self.get_root().send_to_agent(text): return
+        if not self._get_task().send_to_agent(text): return
         for comment in comments:
             comment.sent = True
         self._write()

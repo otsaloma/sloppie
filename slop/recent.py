@@ -42,6 +42,11 @@ def list_repositories():
     # in a normal repository, but a file in a worktree or a submodule.
     return [x for x in paths if (x / ".git").exists()]
 
+def remove_repository(path):
+    """Forget `path` as a recently opened repository."""
+    items = [x for x in _read() if x["path"] != str(path)]
+    slop.util.write_json(items, PATH)
+
 def add_repository(path):
     """Record `path` as the most recently opened repository."""
     # Scratch repositories under /tmp come and go and are never returned

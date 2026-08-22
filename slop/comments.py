@@ -57,7 +57,13 @@ class Comment:
         if self.path is not None:
             parts.append(f"{self.path}:")
         if self.hunk is not None:
-            parts.append(dedent_hunk(self.hunk))
+            # Indented to make it a Markdown code block: an agent takes
+            # what it is handed for Markdown, where a line starting with
+            # '+' or '-' is a list item, which turns a hunk into a
+            # bullet list with the markers and the indentation gone.
+            # Four spaces is the least that works, three or fewer still
+            # leaving room for a list marker to be read.
+            parts.append(textwrap.indent(dedent_hunk(self.hunk), "    "))
         parts.append(self.text)
         return "\n\n".join(parts)
 

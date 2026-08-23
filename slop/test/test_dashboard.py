@@ -16,10 +16,13 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import json
+import shutil
 import slop.dashboard
+import slop.subtask
 import slop.test
 import time
 
+from contextlib import contextmanager
 from pathlib import Path
 from slop import recent
 
@@ -145,6 +148,53 @@ class TestDashboard(slop.test.TestCase):
         assert self.window._page is None
         self.window._dashboard.remove_pending(path)
         assert [x.path for x in self._get_group(0)] == [self.root]
+
+    def test_trashing_a_subtask_drops_it(self):
+        path = self._record_subtask(self.root)
+        self.window._update_dashboard()
+        with self._trash_to(shutil.rmtree) as trashed:
+            self.window.trash_task(str(path))
+        assert trashed == [str(path)]
+        assert not path.exists()
+        assert path not in recent.list_repositories()
+        assert [x.path for x in self._get_group(0)] == [self.root]
+
+    def test_trashing_an_open_subtask_closes_it_first(self):
+        path = self._record_subtask(self.root)
+        self.window.open_task(str(path))
+        with self._trash_to(shutil.rmtree):
+            self.window.trash_task(str(path))
+        # Closed before the directory went, so that the shells running
+        # there were hung up rather than left where it used to be.
+        assert not self.window._tasks
+        assert self.window._page is None
+
+    def test_a_subtask_that_would_not_go_stays(self):
+        path = self._record_subtask(self.root)
+        self.window._update_dashboard()
+        def refuse(path):
+            raise RuntimeError("Trashing on system internal mounts")
+        with self._trash_to(refuse):
+            self.window.trash_task(str(path))
+        # Still there to be looked at or trashed again, rather than
+        # dropped from the list while the directory is where it was.
+        assert path.exists()
+        assert path in recent.list_repositories()
+        assert [x.path for x in self._get_group(0)] == [self.root, path]
+
+    @contextmanager
+    def _trash_to(self, action):
+        """Run the body with subtask.trash replaced by `action`."""
+        # Trashing itself cannot be tested: the scratch repositories are
+        # under /tmp, which GLib refuses to trash from, being a system
+        # internal mount. What the window does around it can be.
+        trashed = []
+        original = slop.subtask.trash
+        slop.subtask.trash = lambda path: (trashed.append(str(path)), action(path))
+        try:
+            yield trashed
+        finally:
+            slop.subtask.trash = original
 
     def _record_subtask(self, parent):
         """Record a scratch repository as a subtask forked from `parent`."""

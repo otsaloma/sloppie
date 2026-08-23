@@ -138,6 +138,15 @@ def _finish(repository, partial, directory):
     link.symlink_to(shared, target_is_directory=True)
     partial.rename(directory)
 
+def trash(directory):
+    """Move the subtask at `directory` to the trash."""
+    # Trashing is a rename into the trash directory, so .git/sloppie
+    # goes along as the symlink it is and the comments and configuration
+    # of the repository forked from are left where they are. Note that
+    # trashing is not supported on all file systems, /tmp and the like
+    # being system internal mounts to GLib.
+    Gio.File.new_for_path(str(directory)).trash(None)
+
 def get_setup_command(branch):
     """Return the shell commands that make the copy a subtask of `branch`."""
     # Substituted by hand rather than by str.format, which would take

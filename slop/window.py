@@ -17,6 +17,7 @@
 
 import slop
 
+from pathlib import Path
 from slop import recent
 from slop import subtask
 from gi.repository import Gdk
@@ -64,6 +65,8 @@ class Window(Gtk.ApplicationWindow):
                                 self.close_task(path))
         self._dashboard.connect("add-subtask", lambda dashboard, path, branch:
                                 self.add_subtask(path, branch))
+        self._dashboard.connect("trash-task", lambda dashboard, path:
+                                self._on_trash_task(path))
         # No switcher for this one: the dashboard is how the user moves
         # between the tasks, and the only way back to it is the button
         # in the header bar.
@@ -132,6 +135,33 @@ class Window(Gtk.ApplicationWindow):
         # node_modules before anything that git knows about.
         self._dashboard.add_pending(directory, repository.root, branch)
         subtask.fork(repository, branch, on_forked)
+
+    def _on_trash_task(self, path):
+        """Ask before moving the subtask at `path` to the trash."""
+        # Always asked, whether or not anything runs in it: what goes is
+        # a whole checkout and the branch that only ever existed in it,
+        # neither of which git can give back.
+        name = Path(path).name
+        if slop.util.confirm(self, f"Move {name} to the trash?",
+                             "The subtask and the work on its branch can only "
+                             "be had back from the trash.",
+                             "Trash"):
+            self.trash_task(path)
+
+    def trash_task(self, path):
+        """Move the subtask at `path` to the trash, closing it first."""
+        # Closed first, so that the shells running there are hung up
+        # rather than left running in a directory that has moved.
+        self.close_task(path)
+        try:
+            subtask.trash(path)
+        except Exception as error:
+            # Left in the list, so that it can be opened again or
+            # trashed once whatever stopped this has been seen to.
+            return slop.util.show_error(
+                self, f"Failed to trash {Path(path).name}", error)
+        recent.remove_repository(path)
+        self._update_dashboard()
 
     def close_task(self, path):
         """Close the task for the repository at `path`."""

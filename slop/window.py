@@ -17,6 +17,8 @@
 
 import slop
 
+from slop import recent
+from slop import subtask
 from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GLib
@@ -60,6 +62,8 @@ class Window(Gtk.ApplicationWindow):
                                 self.open_task(path))
         self._dashboard.connect("close-task", lambda dashboard, path:
                                 self.close_task(path))
+        self._dashboard.connect("add-subtask", lambda dashboard, path, branch:
+                                self.add_subtask(path, branch))
         # No switcher for this one: the dashboard is how the user moves
         # between the tasks, and the only way back to it is the button
         # in the header bar.
@@ -82,7 +86,7 @@ class Window(Gtk.ApplicationWindow):
         child = self._stack.get_visible_child()
         return child if isinstance(child, slop.TaskPage) else None
 
-    def open_task(self, path):
+    def open_task(self, path, setup=None):
         """Show the task for the repository at `path`, opening it if needed."""
         try:
             repository = slop.Repository(path)
@@ -94,15 +98,40 @@ class Window(Gtk.ApplicationWindow):
             # path inside it having led to the same root.
             if task.repository.root == repository.root:
                 return self._show_task(task)
-        self._open_task(repository)
+        self._open_task(repository, setup)
 
-    def _open_task(self, repository):
-        task = slop.TaskPage(repository)
+    def _open_task(self, repository, setup=None):
+        task = slop.TaskPage(repository, setup)
         task.connect("changed", self._on_task_changed)
         self._tasks.append(task)
         self._stack.add_named(task, str(repository.root))
         self._update_dashboard()
         self._show_task(task)
+
+    def add_subtask(self, path, branch):
+        """Fork the repository at `path` into a subtask for `branch`."""
+        try:
+            repository = slop.Repository(path)
+        except Exception as error:
+            return slop.util.show_error(self, f"Failed to open {path}", error)
+        directory = subtask.get_directory(repository.root, branch)
+
+        def on_forked(directory, error):
+            self._dashboard.remove_pending(directory)
+            if error is not None:
+                return slop.util.show_error(
+                    self, f"Failed to fork {branch}", error)
+            recent.add_repository(directory, parent=repository.root)
+            # The git half of the forking is the terminal's to run, so
+            # that it can be watched and answered, and the task lands on
+            # that terminal, which is where the user was headed anyway.
+            self.open_task(str(directory), subtask.get_setup_command(branch))
+
+        # A copy takes long enough to need saying that it is happening,
+        # a repository of any size being gigabytes of virtualenv and
+        # node_modules before anything that git knows about.
+        self._dashboard.add_pending(directory, repository.root, branch)
+        subtask.fork(repository, branch, on_forked)
 
     def close_task(self, path):
         """Close the task for the repository at `path`."""

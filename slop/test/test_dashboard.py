@@ -16,6 +16,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import json
+import slop.dashboard
 import slop.test
 import time
 
@@ -110,6 +111,40 @@ class TestDashboard(slop.test.TestCase):
         assert [x.path for x in self._get_group(0)] == [self.root, path]
         assert self._get_row(0).task is None
         assert self._get_row(1).task is not None
+
+    def test_a_valid_branch_is_forked(self):
+        popover = slop.dashboard.SubtaskPopover(self.root)
+        forked = []
+        popover.connect("forked", lambda popover, branch: forked.append(branch))
+        popover._entry.set_text("  feature/new  ")
+        popover._entry.emit("activate")
+        # Trimmed, the spaces being no part of what was meant and not
+        # allowed in a branch name anyway.
+        assert forked == ["feature/new"]
+
+    def test_an_invalid_branch_says_why(self):
+        popover = slop.dashboard.SubtaskPopover(self.root)
+        forked = []
+        popover.connect("forked", lambda popover, branch: forked.append(branch))
+        popover._entry.set_text("feature..new")
+        popover._entry.emit("activate")
+        # Nothing forked, and the popover left open to say why, rather
+        # than a minute of copying spent before finding out.
+        assert not forked
+        assert popover._error.get_visible()
+        assert "not a valid" in popover._error.get_label()
+
+    def test_a_pending_subtask_is_shown_under_its_parent(self):
+        path = self.root.with_name(f"{self.root.name}.wip")
+        self.window._dashboard.add_pending(path, self.root, "wip")
+        assert [x.path for x in self._get_group(0)] == [self.root, path]
+        # Not a task and not a repository yet, so nothing to open.
+        row = self._get_row(1)
+        assert isinstance(row, slop.dashboard.PendingRow)
+        row.get_parent().emit("row-activated", row)
+        assert self.window._page is None
+        self.window._dashboard.remove_pending(path)
+        assert [x.path for x in self._get_group(0)] == [self.root]
 
     def _record_subtask(self, parent):
         """Record a scratch repository as a subtask forked from `parent`."""

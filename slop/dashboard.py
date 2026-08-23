@@ -15,11 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import slop
+
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
 from pathlib import Path
 from slop import recent
+from slop import subtask
 
 NOTHING = "···"
 
@@ -233,10 +236,109 @@ class TaskRow(Gtk.ListBoxRow):
         self.get_ancestor(Dashboard).clear(self)
 
     def _on_add_subtask_clicked(self, button):
-        self.get_ancestor(Dashboard).emit("add-subtask", str(self.path))
+        popover = SubtaskPopover(self.path)
+        popover.set_parent(button)
+        # A popover set on a widget is a child of it and stays one, so
+        # take it off again once dismissed, or every click would leave
+        # another of them hanging off the button.
+        popover.connect("closed", lambda popover: popover.unparent())
+        popover.connect("forked", self._on_subtask_forked)
+        popover.popup()
+
+    def _on_subtask_forked(self, popover, branch):
+        self.get_ancestor(Dashboard).emit("add-subtask", str(self.path), branch)
 
     def _on_trash_clicked(self, button):
         self.get_ancestor(Dashboard).emit("trash-task", str(self.path))
+
+class SubtaskPopover(Gtk.Popover):
+
+    """Where the branch of a subtask to be forked is typed."""
+
+    # The argument of "forked" is the branch name, checked here and so
+    # good as far as the repository can say before the copy is begun.
+    __gsignals__ = {
+        "forked": (GObject.SignalFlags.RUN_LAST, None, (str,)),
+    }
+
+    def __init__(self, path):
+        GObject.GObject.__init__(self)
+        self.path = path
+        self._entry = None
+        self._error = None
+        self._init_widgets()
+        # A popover focuses its first focusable child, but only once it
+        # has one to focus, which is after it has been shown.
+        self.connect("map", lambda *args: self._entry.grab_focus())
+
+    def _init_widgets(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=9)
+        # Monospace, a branch name being of a kind with what is typed at
+        # a prompt, and wide enough for one of some length.
+        self._entry = Gtk.Entry(placeholder_text="branch-name", width_chars=48)
+        self._entry.add_css_class("monospace")
+        self._entry.connect("activate", self._on_activate)
+        box.append(self._entry)
+        # Says why Enter did nothing, and takes up no room at all until
+        # there is something for it to say.
+        self._error = Gtk.Label(xalign=0,
+                                visible=False,
+                                wrap=True,
+                                max_width_chars=48)
+
+        self._error.add_css_class("error")
+        box.append(self._error)
+        button = Gtk.Button(label="_Add Subtask", use_underline=True)
+        button.add_css_class("suggested-action")
+        button.connect("clicked", self._on_activate)
+        box.append(button)
+        self.set_child(box)
+
+    def _on_activate(self, widget):
+        branch = self._entry.get_text().strip()
+        try:
+            repository = slop.Repository(self.path)
+        except Exception as error:
+            return self._show_error(str(error))
+        # Caught here rather than after a minute of copying, the name
+        # being the one thing that can be told to be wrong beforehand.
+        if (error := subtask.get_error(repository, branch)) is not None:
+            return self._show_error(error)
+        self.popdown()
+        self.emit("forked", branch)
+
+    def _show_error(self, message):
+        self._error.set_label(message)
+        self._error.set_visible(True)
+
+class PendingRow(Gtk.ListBoxRow):
+
+    """A subtask being copied, which is not yet a task to be opened."""
+
+    def __init__(self, path, branch):
+        GObject.GObject.__init__(self)
+        self.path = path
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
+        box.set_margin_start(9)
+        box.append(Gtk.Spinner(spinning=True, valign=Gtk.Align.CENTER))
+        # Named as it will be once it is a subtask, so that the row
+        # merely loses its spinner rather than changes into something
+        # else once the copy is done.
+        name = Gtk.Label(label=branch, xalign=0)
+        name.add_css_class("slop-task-name")
+        box.append(name)
+        # A copy of a repository with a virtualenv or a node_modules in
+        # it is gigabytes and takes its time, so say what the wait is.
+        status = Gtk.Label(label="Copying...", xalign=1, hexpand=True)
+        status.add_css_class("monospace")
+        status.add_css_class("slop-task-path")
+        box.append(status)
+        self.set_child(box)
+
+    def update(self):
+        # Nothing here changes until the copy is done, at which point
+        # the row is replaced by one of the subtask itself.
+        pass
 
 class TaskGroup(Gtk.Frame):
 
@@ -261,6 +363,9 @@ class TaskGroup(Gtk.Frame):
         self.set_overflow(Gtk.Overflow.HIDDEN)
 
     def _on_row_activated(self, listbox, row):
+        # A subtask still being copied is no repository yet and so
+        # nothing that a task can be opened on.
+        if not isinstance(row, TaskRow): return
         self.get_ancestor(Dashboard).emit("open-task", str(row.path))
 
     def remove(self, row):
@@ -281,7 +386,7 @@ class Dashboard(Gtk.Box):
     __gsignals__ = {
         "open-task": (GObject.SignalFlags.RUN_LAST, None, (str,)),
         "close-task": (GObject.SignalFlags.RUN_LAST, None, (str,)),
-        "add-subtask": (GObject.SignalFlags.RUN_LAST, None, (str,)),
+        "add-subtask": (GObject.SignalFlags.RUN_LAST, None, (str, str)),
         "trash-task": (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
 
@@ -291,6 +396,10 @@ class Dashboard(Gtk.Box):
                                  spacing=24)
 
         self._box = None
+        # Subtasks being copied, by the directory they are copied to,
+        # which is where they will be once there is anything there.
+        self._pending = {}
+        self._tasks = []
         self._init_widgets()
 
     def _init_widgets(self):
@@ -334,9 +443,23 @@ class Dashboard(Gtk.Box):
 
     def set_tasks(self, tasks):
         """Rebuild the cards for `tasks` and the repositories recently opened."""
+        self._tasks = list(tasks)
+        self._rebuild()
+
+    def add_pending(self, path, parent, branch):
+        """Show a subtask for `branch` being copied to `path`."""
+        self._pending[path] = (parent, branch)
+        self._rebuild()
+
+    def remove_pending(self, path):
+        """Drop the subtask being copied to `path`, done or failed."""
+        self._pending.pop(path, None)
+        self._rebuild()
+
+    def _rebuild(self):
         while group := self._box.get_first_child():
             self._box.remove(group)
-        open_tasks = {x.repository.root: x for x in tasks}
+        open_tasks = {x.repository.root: x for x in self._tasks}
         # Most recent first, which is also the order the groups of the
         # repositories not open are shown in.
         listed = recent.list_repositories()
@@ -354,8 +477,13 @@ class Dashboard(Gtk.Box):
             # it, by name, which is the branch with the slashes taken out.
             members = sorted(groups[path],
                              key=lambda x: (x != path, x.name.casefold()))
-            self._box.append(TaskGroup(
-                [TaskRow(x, open_tasks.get(x), parents.get(x)) for x in members]))
+            rows = [TaskRow(x, open_tasks.get(x), parents.get(x)) for x in members]
+            # Last in the group, a subtask still being copied having no
+            # repository to be told anything about and no place among
+            # the ones that have until it does.
+            rows += [PendingRow(x, branch) for x, (parent, branch)
+                     in self._pending.items() if parent == path]
+            self._box.append(TaskGroup(rows))
 
     def _sort_key(self, path, groups, open_tasks, rank):
         """Return the key that orders the group of `path` among the rest."""

@@ -18,7 +18,6 @@
 import os
 import shlex
 import signal
-import slop
 import time
 
 from gi.repository import Gdk
@@ -29,6 +28,7 @@ from gi.repository import Pango
 from gi.repository import Vte
 from contextlib import suppress
 from pathlib import Path
+from slop import util
 
 # The coding agents known by name: what a terminal is here to run,
 # what a comment can be sent to and what has a status worth showing.
@@ -319,7 +319,7 @@ class Terminal(Vte.Terminal):
             # Without a shell the terminal is a blank box, so say why. The
             # window is there by now, this being called from the main loop,
             # long after the terminal was made and put in it.
-            slop.util.show_error(self.get_root(), "Failed to start the shell", error.message)
+            util.show_error(self.get_root(), "Failed to start the shell", error.message)
 
     def get_selection(self):
         """Return the text selected in the terminal, or ``None`` if none."""

@@ -24,6 +24,7 @@ from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from slop import recent
+from slop import util
 from slop.git import DiffLine
 from slop.git import parse_diff
 from slop.git import SECTIONS
@@ -212,7 +213,7 @@ class TaskPage(Gtk.Overlay):
         try:
             text = self.repository.get_diff(change)
         except Exception as error:
-            slop.util.show_error(self.get_root(), f"Failed to diff {change.name}", error)
+            util.show_error(self.get_root(), f"Failed to diff {change.name}", error)
             return self._diff_view.set_diff([])
         if len(text) > 2 * 1024 * 1024:
             # Rendering takes a second or so per megabyte of diff, and
@@ -228,7 +229,7 @@ class TaskPage(Gtk.Overlay):
         try:
             operation(change)
         except Exception as error:
-            slop.util.show_error(self.get_root(), message, error)
+            util.show_error(self.get_root(), message, error)
             success = False
         self.refresh()
         return success
@@ -245,18 +246,18 @@ class TaskPage(Gtk.Overlay):
 
     def revert(self):
         change = self._file_sidebar.get_selected_change()
-        if slop.util.confirm(self.get_root(), f"Revert changes in {change.name}?",
-                             "The changes will be permanently lost.",
-                             "Revert"):
+        if util.confirm(self.get_root(), f"Revert changes in {change.name}?",
+                        "The changes will be permanently lost.",
+                        "Revert"):
             if self._apply(self.repository.revert, change,
                            f"Failed to revert {change.name}"):
                 self._toast.flash(f"Reverted file {change.name}")
 
     def trash(self):
         change = self._file_sidebar.get_selected_change()
-        if slop.util.confirm(self.get_root(), f"Move {change.name} to the trash?",
-                             "The file can be restored from the trash.",
-                             "Trash"):
+        if util.confirm(self.get_root(), f"Move {change.name} to the trash?",
+                        "The file can be restored from the trash.",
+                        "Trash"):
             if self._apply(self.repository.trash, change,
                            f"Failed to trash {change.name}"):
                 self._toast.flash(f"Trashed file {change.name}")
@@ -283,7 +284,7 @@ class TaskPage(Gtk.Overlay):
             # along with sloppie nor takes signals meant for sloppie.
             subprocess.Popen(["emacs", *arguments], start_new_session=True)
         except Exception as error:
-            slop.util.show_error(self.get_root(), "Failed to start emacs", error)
+            util.show_error(self.get_root(), "Failed to start emacs", error)
 
     def commit(self):
         dialog = slop.CommitDialog(self.get_root(), self.repository)
@@ -356,7 +357,7 @@ class TaskPage(Gtk.Overlay):
                              cwd=str(self.repository.root),
                              start_new_session=True)
         except Exception as error:
-            return slop.util.show_error(
+            return util.show_error(
                 self.get_root(), f"Failed to run {command}", error)
         # The command runs out of sight, so say that it was started.
         self._toast.flash(f"Running {command}")

@@ -15,11 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import slop
 import time
 
 from gi.repository import GLib
 from pathlib import Path
+from slop import util
 
 # Recently opened repositories, kept as a JSON file of path and time
 # objects, outside any repository, this being a list across them all.
@@ -27,7 +27,7 @@ PATH = Path(GLib.get_user_data_dir()) / "sloppie" / "recent.json"
 
 def _read():
     """Return recorded repositories as items, most recent first."""
-    items = slop.util.read_json(PATH, [])
+    items = util.read_json(PATH, [])
     # Forget repositories not opened in the last two weeks, the list
     # being of what one is working on, not of everything ever opened.
     cutoff = time.time() - 14 * 86400
@@ -54,7 +54,7 @@ def list_parents():
 def remove_repository(path):
     """Forget `path` as a recently opened repository."""
     items = [x for x in _read() if x["path"] != str(path)]
-    slop.util.write_json(items, PATH)
+    util.write_json(items, PATH)
 
 def add_repository(path, parent=None):
     """Record `path` as the most recently opened repository."""
@@ -75,4 +75,4 @@ def add_repository(path, parent=None):
     if parent is not None:
         item["parent"] = str(parent)
     items.insert(0, item)
-    slop.util.write_json(items, PATH)
+    util.write_json(items, PATH)

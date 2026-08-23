@@ -15,12 +15,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import slop
 import sys
 
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import GtkSource
+from slop import util
 
 class CommitDialog(Gtk.Window):
 
@@ -138,7 +138,7 @@ class CommitDialog(Gtk.Window):
                 message = self.repository.get_last_message()
             except Exception as error:
                 # Nothing to amend before the first commit is made.
-                slop.util.show_error(self, "Failed to read the previous commit", error)
+                util.show_error(self, "Failed to read the previous commit", error)
                 return self._amend.set_active(False)
             self._typed = self._get_message()
             buffer.set_text(message)
@@ -153,6 +153,6 @@ class CommitDialog(Gtk.Window):
                                    amend=self._amend.get_active())
         except Exception as error:
             # Leave the dialog be, so that the message is not lost.
-            return slop.util.show_error(self, "Failed to commit", error)
+            return util.show_error(self, "Failed to commit", error)
         self.emit("committed")
         self.close()

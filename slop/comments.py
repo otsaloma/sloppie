@@ -26,6 +26,7 @@ from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
+from slop import util
 
 def dedent_hunk(hunk):
     return textwrap.dedent(hunk.strip("\n"))
@@ -291,9 +292,9 @@ class CommentDialog(Gtk.Window):
         # A comment can be a lot of writing and there's no undo, but one
         # already sent has served its purpose and is only kept around to
         # be deleted, so don't ask about that one.
-        if self._sent or slop.util.confirm(self, "Delete comment?",
-                                           "The comment will be permanently lost.",
-                                           "Delete"):
+        if self._sent or util.confirm(self, "Delete comment?",
+                                      "The comment will be permanently lost.",
+                                      "Delete"):
             self.emit("deleted")
             self.close()
 
@@ -347,7 +348,7 @@ class CommentSidebar(Gtk.Box):
 
     def _read(self):
         """Return the comments of all branches, read from file."""
-        items = slop.util.read_json(self._get_file(), [])
+        items = util.read_json(self._get_file(), [])
         return [Comment(uid=x.get("uid") or derive_uid(x),
                         branch=x.get("branch"),
                         created_at=x.get("created_at", 0),
@@ -400,7 +401,7 @@ class CommentSidebar(Gtk.Box):
                   "created_at": x.created_at, "path": x.path,
                   "hunk": x.hunk, "text": x.text, "sent": x.sent}
                  for x in self._comments]
-        slop.util.write_json(items, path)
+        util.write_json(items, path)
 
     def _init_card(self, comment):
         """Return a card showing `comment`."""

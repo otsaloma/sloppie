@@ -20,6 +20,7 @@ import slop
 from pathlib import Path
 from slop import recent
 from slop import subtask
+from slop import util
 from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GLib
@@ -95,7 +96,7 @@ class Window(Gtk.ApplicationWindow):
             repository = slop.Repository(path)
         except Exception as error:
             # Leave the dashboard be, the user can try another directory.
-            return slop.util.show_error(self, f"Failed to open {path}", error)
+            return util.show_error(self, f"Failed to open {path}", error)
         for task in self._tasks:
             # Already open, and a repository is only ever open once, any
             # path inside it having led to the same root.
@@ -116,13 +117,13 @@ class Window(Gtk.ApplicationWindow):
         try:
             repository = slop.Repository(path)
         except Exception as error:
-            return slop.util.show_error(self, f"Failed to open {path}", error)
+            return util.show_error(self, f"Failed to open {path}", error)
         directory = subtask.get_directory(repository.root, branch)
 
         def on_forked(directory, error):
             self._dashboard.remove_pending(directory)
             if error is not None:
-                return slop.util.show_error(
+                return util.show_error(
                     self, f"Failed to fork {branch}", error)
             recent.add_repository(directory, parent=repository.root)
             # The git half of the forking is the terminal's to run, so
@@ -142,10 +143,10 @@ class Window(Gtk.ApplicationWindow):
         # a whole checkout and the branch that only ever existed in it,
         # neither of which git can give back.
         name = Path(path).name
-        if slop.util.confirm(self, f"Move {name} to the trash?",
-                             "The subtask and the work on its branch can only "
-                             "be had back from the trash.",
-                             "Trash"):
+        if util.confirm(self, f"Move {name} to the trash?",
+                        "The subtask and the work on its branch can only "
+                        "be had back from the trash.",
+                        "Trash"):
             self.trash_task(path)
 
     def trash_task(self, path):
@@ -158,7 +159,7 @@ class Window(Gtk.ApplicationWindow):
         except Exception as error:
             # Left in the list, so that it can be opened again or
             # trashed once whatever stopped this has been seen to.
-            return slop.util.show_error(
+            return util.show_error(
                 self, f"Failed to trash {Path(path).name}", error)
         recent.remove_repository(path)
         self._update_dashboard()
@@ -206,7 +207,7 @@ class Window(Gtk.ApplicationWindow):
     def _on_close_task_activate(self, *args):
         """Close the task shown, asking first if something runs in it."""
         page = self._page
-        if not page.is_running() or slop.util.confirm(
+        if not page.is_running() or util.confirm(
                 self,
                 f"Close {page.repository.root.name}?",
                 "Whatever is running in its terminals will be stopped.",
@@ -220,7 +221,7 @@ class Window(Gtk.ApplicationWindow):
         # the application having the one window.
         if not self._tasks: return False
         count = len(self._tasks)
-        return not slop.util.confirm(
+        return not util.confirm(
             self, "Quit Sloppie?",
             f"{count} task is open and will be closed." if count == 1 else
             f"{count} tasks are open and will be closed.",

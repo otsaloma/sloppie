@@ -385,9 +385,12 @@ class Window(Gtk.ApplicationWindow):
         self._attention_dot.add_css_class("slop-attention-dot")
         overlay = Gtk.Overlay(child=Gtk.Image(icon_name="view-grid-symbolic"))
         overlay.add_overlay(self._attention_dot)
-        button = Gtk.ToggleButton(action_name="win.dashboard",
-                                  child=overlay,
-                                  tooltip_text="Dashboard (F4)")
+        # A plain button, not a toggle: activating the stateful action
+        # flips it either way, and the page shown already says which of
+        # the two we're on, without the toggle looking stuck pressed.
+        button = Gtk.Button(action_name="win.dashboard",
+                            child=overlay,
+                            tooltip_text="Dashboard (F4)")
         # Header bar buttons are flat only if they have the "image-button"
         # class, which GTK adds by itself for an icon or an image child,
         # but not for the overlay we need for the dot.

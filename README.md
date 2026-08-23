@@ -1,12 +1,14 @@
 # Sloppie
 
-Sloppie is a development environment that combines a coding agent
-running in a terminal, a git diff viewer and a code-review like
-mechanism to pass comments on the diff async to the coding agent.
-Sloppie runs on Linux, fitting best in GNOME + Wayland environment.
+Sloppie is a development environment that provides a dashboard to
+orchestrate work over multiple parallel tasks, each of which features a
+coding agent running in a terminal, a git diff viewer and a code-review
+like mechanism to pass comments on the diff async to the coding agent.
+Sloppie runs on Linux, fitting best in the GNOME desktop.
 
 <img src="data/screenshot-1.png" alt="screenshot" width="1429">
 <img src="data/screenshot-2.png" alt="screenshot" width="1429">
+<img src="data/screenshot-3.png" alt="screenshot" width="1429">
 
 Sloppie is hard-coded to its author's preferences and not generic or
 configurable. If you like the concept and want to use Sloppie, instead

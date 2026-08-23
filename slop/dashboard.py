@@ -368,6 +368,10 @@ class TaskGroup(Gtk.Frame):
         if not isinstance(row, TaskRow): return
         self.get_ancestor(Dashboard).emit("open-task", str(row.path))
 
+    def get_rows(self):
+        """Return the rows of the group, in the order shown."""
+        return list(self._listbox)
+
     def remove(self, row):
         """Drop `row`, and return ``True`` if the group is left empty."""
         self._listbox.remove(row)
@@ -401,6 +405,7 @@ class Dashboard(Gtk.Box):
         self._pending = {}
         self._tasks = []
         self._init_widgets()
+        self._init_shortcuts()
 
     def _init_widgets(self):
         self.set_halign(Gtk.Align.CENTER)
@@ -428,6 +433,32 @@ class Dashboard(Gtk.Box):
         scroller.set_propagate_natural_height(True)
         scroller.set_child(self._box)
         self.append(scroller)
+
+    def _init_shortcuts(self):
+        # Alt+1 to Alt+9 open the first nine rows, counted from the top
+        # across the groups. Nothing says which row is which number:
+        # mnemonics would need one printed by every name, which is noise
+        # once one knows they are there and can count to nine. The scope
+        # hands the shortcuts to the window, so that they work wherever
+        # the focus is, but only while the dashboard is the mapped page
+        # of the stack, never while a task and its terminals are shown.
+        shortcuts = Gtk.ShortcutController(scope=Gtk.ShortcutScope.MANAGED)
+        for i in range(1, 10):
+            shortcuts.add_shortcut(Gtk.Shortcut(
+                trigger=Gtk.ShortcutTrigger.parse_string(f"<Alt>{i}"),
+                action=Gtk.CallbackAction.new(
+                    lambda widget, args, i=i: self.activate_row(i))))
+        self.add_controller(shortcuts)
+
+    def activate_row(self, number):
+        """Activate the `number`th row, as though clicked."""
+        # A subtask still being copied is no row to open and no row to
+        # count either, the numbers being those of the tasks.
+        rows = [row for group in self._box for row in group.get_rows()
+                if isinstance(row, TaskRow)]
+
+        if number > len(rows): return False
+        return rows[number-1].activate()
 
     def _on_open_clicked(self, button):
         dialog = Gtk.FileDialog(modal=True, title="Open Repository")

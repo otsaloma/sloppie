@@ -18,9 +18,10 @@ rm -rf "$WORK"
 "$ROOT/tools/fixture-clone.sh" "$TEST"
 
 # Keep the list of recently opened repositories to the run alone, so
-# that the clone and its subtasks stay out of the real dashboard.
-rm -rf /tmp/sloppie-test-data
-export XDG_DATA_HOME=/tmp/sloppie-test-data
+# that the clone and its subtasks stay out of the real dashboard. Not
+# under /tmp either: GLib looks for the trash under XDG_DATA_HOME and
+# refuses to trash across a filesystem boundary, tmpfs to ext4.
+export XDG_DATA_HOME="$WORK/data"
 
 echo "Launching against $TEST"
 exec "$ROOT/bin/sloppie" "$TEST"

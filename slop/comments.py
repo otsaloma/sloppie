@@ -44,30 +44,34 @@ class Comment:
 
     """One review comment, on the changes as a whole or on a hunk."""
 
-    __slots__ = ("uid", "text", "branch", "path", "hunk", "sent", "created_at")
+    __slots__ = ("uid", "branch", "created_at", "path", "hunk", "text", "sent")
 
-    def __init__(self, text, branch, path=None, hunk=None, sent=False,
-                 created_at=None, uid=None):
+    # All of them keyword arguments, so that they can be given in the
+    # order the fields are in above and written to file in, which the
+    # two that a new comment works out for itself would otherwise break.
+    def __init__(self, uid=None, branch=None, created_at=None,
+                 path=None, hunk=None, text="", sent=False):
+
         # What a comment is known by across a reread of the file, the
         # objects being made anew each time it is read and the file
         # being shared by a repository and the subtasks forked from it.
         # Made up here for a comment newly written, derive_uid standing
         # in for the ones written before there were uids at all.
         self.uid = uid or uuid.uuid4().hex
-        self.text = text
         # The branch the comment was written against, which is not
         # necessarily the one it ends up handled on, one round of review
         # often fanning out into several branches.
         self.branch = branch
-        # Both None for a comment on the changes as a whole.
-        self.path = path
-        self.hunk = hunk
-        # True once handed to an agent, which is a fact worth keeping,
-        # a comment being no less permanent for having been sent.
-        self.sent = sent
         # Unix timestamp of writing, by which the comments are sorted,
         # the latest being the one most likely to still be in mind.
         self.created_at = int(time.time()) if created_at is None else created_at
+        # Both None for a comment on the changes as a whole.
+        self.path = path
+        self.hunk = hunk
+        self.text = text
+        # True once handed to an agent, which is a fact worth keeping,
+        # a comment being no less permanent for having been sent.
+        self.sent = sent
 
     def serialize(self):
         """Return the comment as text to be handed to an agent."""
@@ -344,10 +348,13 @@ class CommentSidebar(Gtk.Box):
     def _read(self):
         """Return the comments of all branches, read from file."""
         items = slop.util.read_json(self._get_file(), [])
-        return [Comment(x["text"], x.get("branch"), x.get("path"),
-                        x.get("hunk"), x.get("sent", False),
-                        x.get("created_at", 0),
-                        x.get("uid") or derive_uid(x))
+        return [Comment(uid=x.get("uid") or derive_uid(x),
+                        branch=x.get("branch"),
+                        created_at=x.get("created_at", 0),
+                        path=x.get("path"),
+                        hunk=x.get("hunk"),
+                        text=x["text"],
+                        sent=x.get("sent", False))
                 for x in items]
 
     def _commit(self, comments):
@@ -389,9 +396,9 @@ class CommentSidebar(Gtk.Box):
             with suppress(Exception):
                 path.unlink(missing_ok=True)
             return
-        items = [{"uid": x.uid, "text": x.text, "branch": x.branch,
-                  "path": x.path, "hunk": x.hunk, "sent": x.sent,
-                  "created_at": x.created_at}
+        items = [{"uid": x.uid, "branch": x.branch,
+                  "created_at": x.created_at, "path": x.path,
+                  "hunk": x.hunk, "text": x.text, "sent": x.sent}
                  for x in self._comments]
         slop.util.write_json(items, path)
 
@@ -543,7 +550,7 @@ class CommentSidebar(Gtk.Box):
 
     def add_comment(self, text, path=None, hunk=None):
         """Add and return a comment on `path` and `hunk`, saving it to file."""
-        comment = Comment(text, self._branch, path, hunk)
+        comment = Comment(branch=self._branch, path=path, hunk=hunk, text=text)
         self._add(comment)
         return comment
 

@@ -42,16 +42,37 @@ def list_repositories():
     # in a normal repository, but a file in a worktree or a submodule.
     return [x for x in paths if (x / ".git").exists()]
 
+def list_parents():
+    """Return the repository each subtask was forked from, by path."""
+    # Only a subtask has one, a repository opened on its own having been
+    # forked from nothing. Left in for repositories since moved or
+    # removed too, unlike above: the caller pairs these with the paths
+    # listed there and so drops the rest on its own.
+    return {Path(x["path"]): Path(x["parent"])
+            for x in _read() if x.get("parent")}
+
 def remove_repository(path):
     """Forget `path` as a recently opened repository."""
     items = [x for x in _read() if x["path"] != str(path)]
     slop.util.write_json(items, PATH)
 
-def add_repository(path):
+def add_repository(path, parent=None):
     """Record `path` as the most recently opened repository."""
     # Scratch repositories under /tmp come and go and are never returned
     # to, be they made by hand for a quick look or by the tests.
     if Path(path).is_relative_to("/tmp"): return
-    items = [x for x in _read() if x["path"] != str(path)]
-    items.insert(0, {"path": str(path), "time": round(time.time())})
+    items = _read()
+    # A task is recorded again every time it is opened, but forked only
+    # once, so keep the parent of a subtask across the openings that
+    # follow, which know nothing of where it came from.
+    if parent is None:
+        parent = next((x.get("parent") for x in items
+                       if x["path"] == str(path)), None)
+    items = [x for x in items if x["path"] != str(path)]
+    item = {"path": str(path), "time": round(time.time())}
+    # Only a subtask has a parent, so leave the field out entirely
+    # rather than write a null for every repository opened.
+    if parent is not None:
+        item["parent"] = str(parent)
+    items.insert(0, item)
     slop.util.write_json(items, PATH)

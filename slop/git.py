@@ -292,6 +292,33 @@ class Repository:
             "untracked": self._list_untracked_changes(),
         }
 
+    def is_valid_branch_name(self, branch):
+        """Return ``True`` if git would have `branch` as a branch name."""
+        # Asked of git rather than matched against a rule of our own,
+        # which would agree with it only roughly.
+        try:
+            self._git("check-ref-format", "--branch", branch)
+        except Exception:
+            return False
+        return True
+
+    def get_default_branch(self):
+        """Return the default branch, ``None`` if there is no such branch."""
+        # Whichever of main and master the repository has among its own
+        # branches, there being no repository with both. Local branches
+        # alone, so that one without a remote is no different from one
+        # with, and no network either way.
+        output = self._git("branch", "--list", "main", "master",
+                           "--format=%(refname:short)")
+
+        return output.split("\n")[0].strip() or None
+
+    def has_branch(self, branch):
+        """Return ``True`` if `branch` is a branch of this repository."""
+        # The name is taken as a pattern, but a branch name can hold
+        # none of the characters that would make it more than a name.
+        return bool(self._git("branch", "--list", branch).strip())
+
     def get_branch(self):
         """Return the name of the branch checked out."""
         # A detached HEAD is on no branch, name the commit instead.

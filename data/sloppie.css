@@ -84,11 +84,13 @@ stackswitcher > button.text-button.slop-narrow-tab {
   opacity: 0.5;
 }
 
-.slop-task-close {
-  margin-left: -6px;
-  margin-right: -6px;
+.slop-task-button {
   min-height: 24px;
   min-width: 24px;
+}
+
+.slop-task-buttons {
+  margin-right: -6px;
 }
 
 .slop-task-name {

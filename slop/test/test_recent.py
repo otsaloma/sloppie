@@ -58,3 +58,17 @@ class TestRecent(slop.test.TestCase):
         path = slop.test.new_repository()
         recent.add_repository(path)
         assert path not in recent.list_repositories()
+
+    def test_a_repository_has_no_parent(self):
+        assert self.root not in recent.list_parents()
+
+    def test_a_subtask_has_the_parent_it_was_forked_from(self):
+        path = Path("/nonexistent/repository.feature")
+        recent.add_repository(path, parent=self.root)
+        assert recent.list_parents()[path] == self.root
+
+    def test_reopening_a_subtask_keeps_its_parent(self):
+        path = Path("/nonexistent/repository.feature")
+        recent.add_repository(path, parent=self.root)
+        recent.add_repository(path)
+        assert recent.list_parents()[path] == self.root

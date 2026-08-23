@@ -70,7 +70,7 @@ class TaskPage(Gtk.Overlay):
         "changed": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
-    def __init__(self, repository):
+    def __init__(self, repository, setup=None):
         GObject.GObject.__init__(self)
         self.repository = repository
         self.branch = None
@@ -102,7 +102,10 @@ class TaskPage(Gtk.Overlay):
         self._right_paned = None
         self._shown_change = None
         self._stack_handler = None
-        self._terminals = [slop.Terminal(repository.root) for i in range(3)]
+        # Only the first terminal gets the setup, that being the one the
+        # task lands on and thus the one the user is there to read.
+        self._terminals = [slop.Terminal(repository.root, setup if i == 0 else None)
+                           for i in range(3)]
         self._toast = slop.Toast()
         recent.add_repository(repository.root)
         self._init_widgets()

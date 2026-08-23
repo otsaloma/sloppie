@@ -16,6 +16,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import shlex
 import signal
 import slop
 import time
@@ -56,9 +57,12 @@ class Terminal(Vte.Terminal):
                              (GObject.TYPE_STRING,)),
     }
 
-    def __init__(self, directory):
+    def __init__(self, directory, setup=None):
         GObject.GObject.__init__(self)
         self._directory = directory
+        # Shell commands to run before the prompt, once and once only:
+        # what makes a fresh copy of a repository into a subtask.
+        self._setup = setup
         self._command = None
         self._command_group = None
         self._command_started = None
@@ -271,6 +275,15 @@ class Terminal(Vte.Terminal):
         self._spawned = True
         # Fall back to sh if the user has no shell in the passwd database.
         shell = Vte.get_user_shell() or "/bin/sh"
+        argv = [shell]
+        if self._setup is not None:
+            # Run the setup and then replace that shell with an ordinary
+            # interactive one, which is what the user is left sitting at.
+            # Taken off here rather than left to the flag above, a shell
+            # exited by hand being started afresh below and the setup
+            # being nothing to do a second time.
+            setup, self._setup = self._setup, None
+            argv = [shell, "-c", f"{setup}\nexec {shlex.quote(shell)}"]
         # Make the pty ourselves, which spawning via the terminal would
         # do for us, to have the name of its slave end for SLOPPIE_TTY.
         pty = self.pty_new_sync(Vte.PtyFlags.DEFAULT)
@@ -284,7 +297,7 @@ class Terminal(Vte.Terminal):
         # a hook, which runs detached, with no terminal of its own to
         # find, but writing to the slave device works from anywhere.
         pty.spawn_async(str(self._directory),
-                        [shell],
+                        argv,
                         ["SLOPPIE=1", f"SLOPPIE_TTY={os.ptsname(pty.get_fd())}"],
                         GLib.SpawnFlags.DEFAULT,
                         None,

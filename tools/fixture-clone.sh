@@ -10,6 +10,10 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 git clone --quiet "$ROOT" "$1"
 cd "$1"
 
+# Give the clone a local master to fork subtasks off.
+git show-ref --quiet --verify refs/heads/master ||
+    git branch --quiet master origin/master
+
 # Staged
 sed -i 's/_parse_numstat/_parse_counts/g' slop/git.py
 sed -i "s/\"/'/g" slop/sidebar.py

@@ -15,9 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import hashlib
 import slop
 import textwrap
 import time
+import uuid
 
 from contextlib import suppress
 from gi.repository import GLib
@@ -28,28 +30,48 @@ from gi.repository import Pango
 def dedent_hunk(hunk):
     return textwrap.dedent(hunk.strip("\n"))
 
+def derive_uid(item):
+    """Return the uid of `item`, which was written before there were uids."""
+    # Derived from the contents rather than made up, so that every read
+    # of the file gives the same comment the same uid. There is no one
+    # moment to hand them out at instead: a repository and the subtasks
+    # forked from it share the file, and each of them can read it before
+    # any of them writes it back with the uids in place.
+    text = repr(sorted((str(x), str(y)) for x, y in item.items()))
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:32]
+
 class Comment:
 
     """One review comment, on the changes as a whole or on a hunk."""
 
-    __slots__ = ("text", "branch", "path", "hunk", "sent", "created_at")
+    __slots__ = ("uid", "branch", "created_at", "path", "hunk", "text", "sent")
 
-    def __init__(self, text, branch, path=None, hunk=None, sent=False,
-                 created_at=None):
-        self.text = text
+    # All of them keyword arguments, so that they can be given in the
+    # order the fields are in above and written to file in, which the
+    # two that a new comment works out for itself would otherwise break.
+    def __init__(self, uid=None, branch=None, created_at=None,
+                 path=None, hunk=None, text="", sent=False):
+
+        # What a comment is known by across a reread of the file, the
+        # objects being made anew each time it is read and the file
+        # being shared by a repository and the subtasks forked from it.
+        # Made up here for a comment newly written, derive_uid standing
+        # in for the ones written before there were uids at all.
+        self.uid = uid or uuid.uuid4().hex
         # The branch the comment was written against, which is not
         # necessarily the one it ends up handled on, one round of review
         # often fanning out into several branches.
         self.branch = branch
-        # Both None for a comment on the changes as a whole.
-        self.path = path
-        self.hunk = hunk
-        # True once handed to an agent, which is a fact worth keeping,
-        # a comment being no less permanent for having been sent.
-        self.sent = sent
         # Unix timestamp of writing, by which the comments are sorted,
         # the latest being the one most likely to still be in mind.
         self.created_at = int(time.time()) if created_at is None else created_at
+        # Both None for a comment on the changes as a whole.
+        self.path = path
+        self.hunk = hunk
+        self.text = text
+        # True once handed to an agent, which is a fact worth keeping,
+        # a comment being no less permanent for having been sent.
+        self.sent = sent
 
     def serialize(self):
         """Return the comment as text to be handed to an agent."""
@@ -326,10 +348,45 @@ class CommentSidebar(Gtk.Box):
     def _read(self):
         """Return the comments of all branches, read from file."""
         items = slop.util.read_json(self._get_file(), [])
-        return [Comment(x["text"], x.get("branch"), x.get("path"),
-                        x.get("hunk"), x.get("sent", False),
-                        x.get("created_at", 0))
+        return [Comment(uid=x.get("uid") or derive_uid(x),
+                        branch=x.get("branch"),
+                        created_at=x.get("created_at", 0),
+                        path=x.get("path"),
+                        hunk=x.get("hunk"),
+                        text=x["text"],
+                        sent=x.get("sent", False))
                 for x in items]
+
+    def _commit(self, comments):
+        """Take `comments` as the comments there are, and write them."""
+        self._comments = comments
+        self._write()
+        self._update_cards()
+
+    def _modify(self, uids, **fields):
+        """Set `fields` on the comments in `uids`, keeping what others wrote."""
+        # Read afresh and change only the comments this is about, rather
+        # than write back the list read when the sidebar was made: the
+        # file is shared with the subtasks forked from this repository,
+        # each of them with a sidebar of its own writing the same file,
+        # so a comment written in one of them would otherwise be lost
+        # the next time another one saved.
+        comments = self._read()
+        for comment in comments:
+            if comment.uid not in uids: continue
+            for name, value in fields.items():
+                setattr(comment, name, value)
+        self._commit(comments)
+
+    def _add(self, comment):
+        """Add `comment` to the comments on file, keeping what others wrote."""
+        comments = self._read()
+        comments.append(comment)
+        self._commit(comments)
+
+    def _remove(self, uids):
+        """Drop the comments in `uids`, keeping what others wrote."""
+        self._commit([x for x in self._read() if x.uid not in uids])
 
     def _write(self):
         """Write the comments of all branches to file."""
@@ -339,9 +396,9 @@ class CommentSidebar(Gtk.Box):
             with suppress(Exception):
                 path.unlink(missing_ok=True)
             return
-        items = [{"text": x.text, "branch": x.branch, "path": x.path,
-                  "hunk": x.hunk, "sent": x.sent,
-                  "created_at": x.created_at}
+        items = [{"uid": x.uid, "branch": x.branch,
+                  "created_at": x.created_at, "path": x.path,
+                  "hunk": x.hunk, "text": x.text, "sent": x.sent}
                  for x in self._comments]
         slop.util.write_json(items, path)
 
@@ -409,43 +466,39 @@ class CommentSidebar(Gtk.Box):
                                comment.sent)
 
         def on_saved(dialog, text):
-            comment.text = text
-            self._write()
-            self._update_cards()
+            self._modify([comment.uid], text=text)
 
         def on_moved(dialog, text):
-            comment.text = text
             # Off the current branch if on it, onto it if not, there
             # being only these two places for a comment to be.
-            comment.branch = (None if comment.branch == self._branch
-                              else self._branch)
-            self._write()
-            self._update_cards()
+            branch = (None if comment.branch == self._branch else self._branch)
+            self._modify([comment.uid], text=text, branch=branch)
 
         def on_sent(dialog, text):
-            comment.text = text
-            self._write()
-            self._update_cards()
-            self._send_comment(comment)
+            self._modify([comment.uid], text=text)
+            # The comment held here is the one read before the edit, so
+            # send what the reread put in its place, text and all.
+            if (saved := self._find(comment.uid)) is not None:
+                self._send_comment(saved)
 
         def on_deleted(dialog):
-            self._comments.remove(comment)
-            self._write()
-            self._update_cards()
+            self._remove([comment.uid])
         dialog.connect("saved", on_saved)
         dialog.connect("moved", on_moved)
         dialog.connect("sent", on_sent)
         dialog.connect("deleted", on_deleted)
         dialog.present()
 
+    def _find(self, uid):
+        """Return the comment known by `uid`, if there still is one."""
+        return next((x for x in self._comments if x.uid == uid), None)
+
     def _send_comment(self, comment):
         """Hand `comment` to the agent, marking it sent if that worked."""
         # A comment that didn't go stays as it was, so that the user can
         # start the agent and send it again.
         if not self._get_task().send_to_agent(comment.serialize()): return
-        comment.sent = True
-        self._write()
-        self._update_cards()
+        self._modify([comment.uid], sent=True)
 
     def send_unsent_comments(self):
         """Hand the comments of the current branch not yet sent to the agent."""
@@ -469,21 +522,19 @@ class CommentSidebar(Gtk.Box):
                      for i, x in enumerate(parts, start=1)]
         text = "\n\n".join(parts)
         if not self._get_task().send_to_agent(text): return
-        for comment in comments:
-            comment.sent = True
-        self._write()
-        self._update_cards()
+        self._modify([x.uid for x in comments], sent=True)
 
     def delete_sent_comments(self):
         """Remove the comments of the current branch that have been sent."""
         # Only the current branch's, as with sending, the comments of
         # another branch being deleted one at a time, from their dialog.
-        keep = [x for x in self._comments
-                if not x.sent or x.branch != self._branch]
-        if len(keep) == len(self._comments): return
-        self._comments = keep
-        self._write()
-        self._update_cards()
+        # By name rather than by keeping the rest, so that a comment
+        # written in a subtask since this was read is not deleted along
+        # with them, having never been one of the comments shown here.
+        uids = [x.uid for x in self._comments
+                if x.sent and x.branch == self._branch]
+        if not uids: return
+        self._remove(uids)
 
     def new_comment(self, path=None, hunk=None):
         """Let the user write a comment on `path` and `hunk`, or on the changes."""
@@ -499,10 +550,8 @@ class CommentSidebar(Gtk.Box):
 
     def add_comment(self, text, path=None, hunk=None):
         """Add and return a comment on `path` and `hunk`, saving it to file."""
-        comment = Comment(text, self._branch, path, hunk)
-        self._comments.append(comment)
-        self._write()
-        self._update_cards()
+        comment = Comment(branch=self._branch, path=path, hunk=hunk, text=text)
+        self._add(comment)
         return comment
 
     def set_branch(self, branch):

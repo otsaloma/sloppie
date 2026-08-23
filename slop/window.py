@@ -385,9 +385,14 @@ class Window(Gtk.ApplicationWindow):
         self._attention_dot.add_css_class("slop-attention-dot")
         overlay = Gtk.Overlay(child=Gtk.Image(icon_name="view-grid-symbolic"))
         overlay.add_overlay(self._attention_dot)
-        header.pack_start(Gtk.ToggleButton(action_name="win.dashboard",
-                                           child=overlay,
-                                           tooltip_text="Dashboard (F4)"))
+        button = Gtk.ToggleButton(action_name="win.dashboard",
+                                  child=overlay,
+                                  tooltip_text="Dashboard (F4)")
+        # Header bar buttons are flat only if they have the "image-button"
+        # class, which GTK adds by itself for an icon or an image child,
+        # but not for the overlay we need for the dot.
+        button.add_css_class("image-button")
+        header.pack_start(button)
 
         # The icon theme has no commit icon, a save icon being the
         # closest thing.

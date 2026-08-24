@@ -40,7 +40,8 @@ Sloppie sends a desktop notification when something in a task warrants
 attention: an agent done with its turn or a long command finished. This
 is accomplished via the terminal bell: the coding agents rings the bell,
 Sloppie hears that and shows the notification. An example notification
-hook script below.
+hook script below for Claude Code, file `~/.claude/notify.sh`,
+configure in `~/.claude/settings.json`.
 
 ```bash
 #!/bin/bash

@@ -33,3 +33,22 @@ dependencies with the following command.
 Then, to install Sloppie, run command
 
     sudo make PREFIX=/usr/local install
+
+## Notifications
+
+Sloppie sends a desktop notification when something in a task warrants
+attention: an agent done with its turn or a long command finished. This
+is accomplished via the terminal bell: the coding agents rings the bell,
+Sloppie hears that and shows the notification. An example notification
+hook script below.
+
+```bash
+#!/bin/bash
+if [ -n "$SLOPPIE" ]; then
+    # Ring the bell for Sloppie.
+    printf '\a' > "${SLOPPIE_TTY:-/dev/tty}" 2>/dev/null
+    exit 0
+else
+    notify-send -i claude -e "Claude Code" "Wants something"
+fi
+```

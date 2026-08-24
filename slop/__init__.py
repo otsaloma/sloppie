@@ -46,6 +46,7 @@ from slop.run import RunDialog
 from slop.terminal import Terminal
 from slop.toast import Toast
 from slop.about import AboutDialog
+from slop.shortcuts import ShortcutsWindow
 from slop.commit import CommitDialog
 from slop.dashboard import Dashboard
 from slop.task import TaskPage

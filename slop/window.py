@@ -311,6 +311,12 @@ class Window(Gtk.ApplicationWindow):
             trigger=Gtk.ShortcutTrigger.parse_string("F4"),
             action=Gtk.NamedAction.new("win.dashboard")))
         self.add_controller(shortcuts)
+        # These two only ever open a window, without a keyboard shortcut
+        # of their own, so they are always enabled and need none of the
+        # above.
+        action = Gio.SimpleAction(name="shortcuts")
+        action.connect("activate", self._on_shortcuts_activate)
+        self.add_action(action)
         action = Gio.SimpleAction(name="about")
         action.connect("activate", self._on_about_activate)
         self.add_action(action)
@@ -436,6 +442,7 @@ class Window(Gtk.ApplicationWindow):
         menu = Gio.Menu()
         menu.append("Wrap Lines", "win.wrap-lines")
         menu.append("Configure", "win.configure")
+        menu.append("Keyboard Shortcuts", "win.shortcuts")
         menu.append("About Sloppie", "win.about")
         header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic",
                                        menu_model=menu,
@@ -536,6 +543,9 @@ class Window(Gtk.ApplicationWindow):
     def _on_wrap_lines_change_state(self, action, state):
         action.set_state(state)
         self._page.set_wrap_lines(state.get_boolean())
+
+    def _on_shortcuts_activate(self, *args):
+        slop.ShortcutsWindow(self).present()
 
     def _on_about_activate(self, *args):
         slop.AboutDialog(self).present()

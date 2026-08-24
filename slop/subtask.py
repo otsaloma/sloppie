@@ -50,6 +50,11 @@ else
     # turning the tracing off would be one more line of it.
     { set +x; } 2>/dev/null
 fi
+if [ -f .envrc ]; then
+    set -x
+    direnv allow
+    { set +x; } 2>/dev/null
+fi
 """
 
 def get_directory(root, branch):

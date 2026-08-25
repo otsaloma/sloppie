@@ -108,6 +108,8 @@ class TaskPage(Gtk.Overlay):
         self._terminals = [slop.Terminal(repository.root, setup if i == 0 else None)
                            for i in range(3)]
         self._toast = slop.Toast()
+        # Timeouts due to withdraw notifications sent, by terminal index.
+        self._withdraw_sources = {}
         recent.add_repository(repository.root)
         self._init_widgets()
         self._init_signal_handlers()
@@ -443,11 +445,26 @@ class TaskPage(Gtk.Overlay):
         # HIGH differs from NORMAL by queue order alone, LOW is never
         # shown as a banner. URGENT is the one that gets through Do Not
         # Disturb and a fullscreen window, at the price of a banner that
-        # stays on screen until dismissed, there being no way to have
-        # one that is both urgent and transient.
+        # stays on screen until dismissed and a notification that stays
+        # in GNOME's list until cleared. GNotification has no transient
+        # flag, notify-send's --transient reaching no further than the
+        # freedesktop D-Bus interface, so take the notification back
+        # ourselves after a few seconds, which ends the banner too.
         notification.set_priority(Gio.NotificationPriority.URGENT)
-        window.get_application().send_notification(
-            f"{self.repository.root}-terminal-{index}", notification)
+        application = window.get_application()
+        notification_id = f"{self.repository.root}-terminal-{index}"
+        application.send_notification(notification_id, notification)
+        if index in self._withdraw_sources:
+            # An alert following close on another one replaces it, so the
+            # withdrawal due for the first would cut the second short.
+            GLib.source_remove(self._withdraw_sources.pop(index))
+        self._withdraw_sources[index] = GLib.timeout_add_seconds(
+            3, self._on_withdraw_timeout, application, notification_id, index)
+
+    def _on_withdraw_timeout(self, application, notification_id, index):
+        application.withdraw_notification(notification_id)
+        del self._withdraw_sources[index]
+        return GLib.SOURCE_REMOVE
 
     def _show_diff_view(self):
         # Focus belongs to the sidebar here, so block the handler that

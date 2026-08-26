@@ -163,8 +163,12 @@ class Terminal(Vte.Terminal):
         self.set_scrollback_lines(10000)
         self.set_scroll_on_keystroke(True)
         self.set_scroll_on_output(False)
+        # Pango takes a comma-separated family list here, same as the CSS
+        # elsewhere, and VTE measures its cell from whichever family is
+        # found first. Without a list, a missing font leaves fontconfig
+        # to substitute its generic default, which is proportional.
         self.set_font(Pango.FontDescription.from_string(
-            "Berkeley Standard Mono Medium 10"))
+            "Berkeley Standard Mono, SF Mono, monospace Medium 10"))
 
     def _init_poll(self):
         # Watch the foreground command come and go, so that a test run,

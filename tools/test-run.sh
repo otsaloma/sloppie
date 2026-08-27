@@ -3,8 +3,8 @@ set -eu
 
 # Clone this repository under the cache directory, give the clone
 # changes of every kind we render and launch sloppie against it. The
-# clone is thrown away and made anew on each run, so it can be freely
-# messed with. Not under /tmp: repositories there are deliberately not
+# clone is thrown away when the run ends, so it can be freely messed
+# with. Not under /tmp: repositories there are deliberately not
 # recorded as recently opened, so subtasks forked in the run would show
 # up ungrouped, and GLib keeps the trash under the home directory and
 # refuses to trash across a filesystem boundary, tmpfs to ext4.
@@ -16,15 +16,19 @@ set -eu
 # inherit the environment of sloppie, and claude, started in one of
 # them, would install itself under a directory thrown away on the next
 # run and leave ~/.local/bin/claude pointing there. The clone is left
-# among the real ones instead, where it is skipped once thrown away,
-# its '.git' being gone.
+# among the real ones instead, where it is skipped after the run throws
+# it away, its '.git' being gone.
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$HOME/.cache/sloppie/test-run
 TEST=$WORK/sloppie
 
-rm -rf "$WORK"
-"$ROOT/tools/fixture-clone.sh" "$TEST"
+cleanup() {
+    rm -rf "$WORK"
+}
 
+trap cleanup 0
+cleanup
+"$ROOT/tools/fixture-clone.sh" "$TEST"
 echo "Launching against $TEST"
-exec "$ROOT/bin/sloppie" "$TEST"
+"$ROOT/bin/sloppie" "$TEST"

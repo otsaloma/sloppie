@@ -17,6 +17,7 @@
 
 import slop
 
+from gi.repository import Gio
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
@@ -462,6 +463,9 @@ class Dashboard(Gtk.Box):
 
     def _on_open_clicked(self, button):
         dialog = Gtk.FileDialog(modal=True, title="Open Repository")
+        directory = Path.home() / "Source"
+        if directory.is_dir():
+            dialog.set_initial_folder(Gio.File.new_for_path(str(directory)))
         dialog.select_folder(self.get_root(), None, self._on_folder_selected)
 
     def _on_folder_selected(self, dialog, result):

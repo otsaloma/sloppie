@@ -145,6 +145,23 @@ stackswitcher > button.text-button.slop-narrow-tab {
   padding: 1px 5px;
 }
 
+/* Undo some link button styling. */
+.slop-task-pull-request {
+  background-color: mix(@theme_base_color, #9e46e6, 0.1);
+  background-image: none;
+  border: 1px solid mix(@theme_base_color, #9e46e6, 0.3);
+  border-radius: 4px;
+  color: #9e46e6;
+  font-size: 11px;
+  min-height: 0;
+  min-width: 0;
+  padding: 1px 5px;
+}
+
+.slop-task-pull-request label {
+  text-decoration-line: none;
+}
+
 .slop-comment-sidebar {
   padding: 12px;
 }

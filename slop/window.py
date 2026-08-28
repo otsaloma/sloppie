@@ -524,8 +524,10 @@ class Window(Gtk.ApplicationWindow):
         if state.get_boolean():
             return self._show_dashboard()
         if not self._tasks:
-            # Nothing to zoom in to, so stay where we are.
-            return
+            # Nothing to zoom in to, so stay where we are, but take the
+            # press for what it can still mean on a dashboard that never
+            # goes away: ask GitHub again, as turning to it would.
+            return self._dashboard.refresh_pull_requests()
         # Back to the task last shown, or to the latest opened if that
         # one has since been closed.
         self._show_task(self._last_task if self._last_task in self._tasks

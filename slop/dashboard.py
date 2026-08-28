@@ -509,8 +509,9 @@ class Dashboard(Gtk.Box):
         # when there is someone to read the answer: on turning to the
         # dashboard, and one request per repository, not one per card.
         # Nothing is polled, a pull request opened or merged while the
-        # dashboard is up being seen on the next turn to it.
-        self.connect("map", lambda *args: self._refresh_pull_requests())
+        # dashboard is up being seen on the next turn to it, or on the
+        # next press of F4 where there is no task to turn away to.
+        self.connect("map", lambda *args: self.refresh_pull_requests())
 
     def _init_widgets(self):
         self.set_halign(Gtk.Align.CENTER)
@@ -635,7 +636,7 @@ class Dashboard(Gtk.Box):
         # but only if there is anyone looking at the dashboard, the next
         # turn to it doing the asking otherwise.
         if self.get_mapped():
-            self._refresh_pull_requests()
+            self.refresh_pull_requests()
 
     def _sort_key(self, path, groups, open_tasks, rank):
         """Return the key that orders the group of `path` among the rest."""
@@ -648,7 +649,7 @@ class Dashboard(Gtk.Box):
             return (0, path.name.casefold(), 0)
         return (1, "", min(rank.get(x, len(rank)) for x in groups[path]))
 
-    def _refresh_pull_requests(self):
+    def refresh_pull_requests(self):
         """Ask GitHub about each repository listed, at most once a minute."""
         now = time.monotonic()
         for group in self._box:

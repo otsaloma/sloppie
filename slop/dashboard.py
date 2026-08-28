@@ -653,6 +653,10 @@ class Dashboard(Gtk.Box):
         """Ask GitHub about each repository listed, at most once a minute."""
         now = time.monotonic()
         for group in self._box:
+            # If no subtasks and the repository (first row) not open,
+            # we have no known branch and cannot find PRs.
+            rows = group.get_rows()
+            if len(rows) == 1 and rows[0].task is None: continue
             asked = self._pull_requests_asked.get(group.root)
             if asked is not None and now - asked < 60: continue
             # Recorded before the answer comes and whatever it says, so

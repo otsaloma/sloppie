@@ -36,6 +36,7 @@ Document what you do take below.
 | Ctrl+U        | Unstage file | readline unix-line-discard: erase to line start |
 | Ctrl+W        | Close task   | readline unix-word-rubout: erase preceding word |
 | Shift+Ctrl+C  | Copy         | tty ^C: interrupt, plain Ctrl+C unharmed        |
+| Shift+Ctrl+R  | Resume agent | readline reverse-search, plain Ctrl+R unharmed  |
 | Shift+Ctrl+V  | Paste        | readline quoted-insert, plain Ctrl+V unharmed   |
 | F4            | Dashboard    | nothing in readline or tty; TUI apps lose F4    |
 | F5            | Run command  | nothing in readline or tty; TUI apps lose F5    |

@@ -59,6 +59,18 @@ class TestRecent(slop.test.TestCase):
         recent.add_repository(path)
         assert path not in recent.list_repositories()
 
+    def test_a_repository_has_no_agent_session_to_resume(self):
+        assert recent.get_resume_command(self.root) is None
+
+    def test_the_agent_session_recorded_is_the_one_resumed(self):
+        recent.set_resume_command(self.root, "claude --resume 1234")
+        assert recent.get_resume_command(self.root) == "claude --resume 1234"
+
+    def test_reopening_a_repository_keeps_its_agent_session(self):
+        recent.set_resume_command(self.root, "claude --resume 1234")
+        recent.add_repository(self.root)
+        assert recent.get_resume_command(self.root) == "claude --resume 1234"
+
     def test_a_repository_has_no_parent(self):
         assert self.root not in recent.list_parents()
 

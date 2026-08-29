@@ -68,6 +68,7 @@ class ShortcutsWindow(Gtk.ShortcutsWindow):
                 ("Terminal", (
                     ("<Shift><Control>c", "Copy"),
                     ("<Shift><Control>v", "Paste"),
+                    ("<Shift><Control>r", "Resume Agent"),
                 )),
                 ("Window", (
                     # A toggle, so this is the way back from the

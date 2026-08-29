@@ -43,6 +43,7 @@ class Window(Gtk.ApplicationWindow):
         self._switcher = None
         self._task_widgets = []
         self._tasks = []
+        self._title_box = None
         self._title_label = None
         self._init_properties()
         self.load_css()
@@ -260,8 +261,10 @@ class Window(Gtk.ApplicationWindow):
         # the whole repository in dired; an amend can be committed even
         # without staged changes; a comment can be written at any time,
         # with no file selected too, being a comment on the changes as a
-        # whole. Ctrl+Enter, Ctrl+M and F5 need the capture phase, the
-        # terminal otherwise passing them on to the shell.
+        # whole; there is an agent session to resume or a toast to say
+        # that there isn't. Ctrl+Enter, Ctrl+M, Shift+Ctrl+R and F5 need
+        # the capture phase, the terminal otherwise passing them on to
+        # the shell.
         for name, accelerator, method in (
                 ("edit", "<Control>e", "edit"),
                 ("commit", "<Control>Return", "commit"),
@@ -270,6 +273,7 @@ class Window(Gtk.ApplicationWindow):
                 ("delete-sent-comments", None, "delete_sent_comments"),
                 ("run", "F5", "run"),
                 ("configure-run", "<Shift>F5", "configure_run"),
+                ("resume-agent", "<Shift><Control>r", "resume_agent"),
                 ("configure", None, "configure")):
             action = Gio.SimpleAction(name=name, enabled=False)
             action.connect("activate", self._on_task_action, method)
@@ -435,10 +439,19 @@ class Window(Gtk.ApplicationWindow):
         self._task_widgets.append(box)
         # The switcher takes the title's place while a task is shown,
         # the dashboard leaving it empty for the header bar to fall back
-        # on the window title, which it centers.
+        # on the window title, which it centers. Resuming an agent rides
+        # along with it rather than sitting at the end of the header bar
+        # with the rest: what it does happens in a terminal, so it
+        # belongs beside the tabs that lead to them.
         self._header = header
         self._switcher = Gtk.StackSwitcher()
-        header.set_title_widget(self._switcher)
+        self._title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self._title_box.append(self._switcher)
+        self._title_box.append(Gtk.Button(
+            action_name="win.resume-agent",
+            icon_name="view-refresh-symbolic",
+            tooltip_text="Resume Agent (Shift+Ctrl+R)"))
+        header.set_title_widget(self._title_box)
         menu = Gio.Menu()
         menu.append("Wrap Lines", "win.wrap-lines")
         menu.append("Configure", "win.configure")
@@ -481,12 +494,13 @@ class Window(Gtk.ApplicationWindow):
             widget.set_visible(page is not None)
         # Empty on the dashboard, which leaves the header bar to center
         # the window title in the switcher's place.
-        self._header.set_title_widget(self._switcher if page else None)
+        self._header.set_title_widget(self._title_box if page else None)
         self.lookup_action("dashboard").set_state(
             GLib.Variant.new_boolean(page is None))
         for name in ("add-comment", "close-task", "commit", "configure",
                      "configure-run", "delete-sent-comments", "edit", "focus",
-                     "run", "send-comments", "switch-tab", "wrap-lines"):
+                     "resume-agent", "run", "send-comments", "switch-tab",
+                     "wrap-lines"):
             self.lookup_action(name).set_enabled(page is not None)
         # Allow only the file operations that apply to the file
         # selected. Staged changes are reverted by unstaging them first.

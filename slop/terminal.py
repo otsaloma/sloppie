@@ -16,6 +16,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import re
 import shlex
 import signal
 import time
@@ -28,6 +29,7 @@ from gi.repository import Pango
 from gi.repository import Vte
 from contextlib import suppress
 from pathlib import Path
+from slop import recent
 from slop import util
 
 # The coding agents known by name: what a terminal is here to run,
@@ -206,6 +208,8 @@ class Terminal(Vte.Terminal):
             self._command_started = None
             if self._command is not None:
                 command, self._command = self._command, None
+                if command in AGENTS:
+                    self._store_resume_command(command)
                 self.emit("command-finished", command)
         else:
             if group != self._command_group:
@@ -242,6 +246,21 @@ class Terminal(Vte.Terminal):
         # a pipeline, in which case the name from the previous poll is
         # the best we have. A command never named is never told about.
         return commands[0] if commands else None
+
+    def _store_resume_command(self, command):
+        """Record how to get back to the session `command` has just left."""
+        # Both agents print that on quitting: claude as a ready command,
+        # codex as prose with the session id in parentheses. Either way
+        # the id follows the words that resume it, so read what's on
+        # screen above the prompt and take the last such pair found.
+        column, row = self.get_cursor_position()
+        text, length = self.get_text_range_format(
+            Vte.Format.TEXT, max(0, row - 50), 0, row, -1)
+        pairs = re.findall("(" + command + r" (?:--resume|resume))\b.{0,200}?"
+                           r"([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})",
+                           text, re.DOTALL)
+        if not pairs: return
+        recent.set_resume_command(self._directory, " ".join(pairs[-1]))
 
     def _init_shortcuts(self):
         # VTE has the clipboard API, but no keybindings for it, those

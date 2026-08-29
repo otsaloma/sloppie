@@ -51,6 +51,19 @@ def list_parents():
     return {Path(x["path"]): Path(x["parent"])
             for x in _read() if x.get("parent")}
 
+def get_resume_command(path):
+    """Return the command to resume the last agent session in `path`."""
+    return next((x.get("resume") for x in _read()
+                 if x["path"] == str(path)), None)
+
+def set_resume_command(path, command):
+    """Record `command` as the way back to the agent session left in `path`."""
+    items = _read()
+    for item in items:
+        if item["path"] != str(path): continue
+        item["resume"] = command
+        return util.write_json(items, PATH)
+
 def remove_repository(path):
     """Forget `path` as a recently opened repository."""
     items = [x for x in _read() if x["path"] != str(path)]
@@ -62,17 +75,21 @@ def add_repository(path, parent=None):
     # to, be they made by hand for a quick look or by the tests.
     if Path(path).is_relative_to("/tmp"): return
     items = _read()
+    previous = next((x for x in items if x["path"] == str(path)), {})
     # A task is recorded again every time it is opened, but forked only
     # once, so keep the parent of a subtask across the openings that
     # follow, which know nothing of where it came from.
     if parent is None:
-        parent = next((x.get("parent") for x in items
-                       if x["path"] == str(path)), None)
+        parent = previous.get("parent")
     items = [x for x in items if x["path"] != str(path)]
     item = {"path": str(path), "time": round(time.time())}
     # Only a subtask has a parent, so leave the field out entirely
     # rather than write a null for every repository opened.
     if parent is not None:
         item["parent"] = str(parent)
+    # An agent session outlives the openings of the repository it was
+    # left in, that being the whole point of writing it down here.
+    if resume := previous.get("resume"):
+        item["resume"] = resume
     items.insert(0, item)
     util.write_json(items, PATH)

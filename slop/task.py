@@ -338,6 +338,26 @@ class TaskPage(Gtk.Overlay):
         terminal.paste_text(text)
         return True
 
+    def resume_agent(self):
+        """Run the command to resume the agent session last quit here."""
+        # Recorded by the terminal off what the agent printed on its way
+        # out, and kept with the repository rather than with the task,
+        # so that the session is still there to return to tomorrow.
+        command = recent.get_resume_command(self.repository.root)
+        if command is None:
+            return self._toast.flash("No agent session to resume")
+        # The first terminal, that being the agent's, the same as where
+        # a comment is sent. Never on top of whatever runs there.
+        terminal = self._terminals[0]
+        if terminal.is_running():
+            return self._toast.flash("Something is running in the terminal")
+        self.stack.set_visible_child_name("terminal-1")
+        self.focus_shown_view()
+        # Typed into the shell as the user would type it, Enter and all,
+        # this being a button pressed to have the agent back, not a
+        # command to look over first.
+        terminal.feed_child(f"{command}\n".encode())
+
     def run(self):
         if command := self.config.read_item("run-command"):
             return self._run(command)

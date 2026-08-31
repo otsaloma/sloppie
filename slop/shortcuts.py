@@ -36,9 +36,9 @@ class ShortcutsWindow(Gtk.ShortcutsWindow):
         # The one section, which keeps the plain title in the header
         # bar: a second one would turn that into a dropdown to switch
         # between them, hiding half the shortcuts behind it. The groups
-        # are laid out as columns, sixteen lines being what fits them
+        # are laid out as columns, seventeen lines being what fits them
         # all on one page rather than spilling onto a second.
-        section = Gtk.ShortcutsSection(max_height=16, title="Shortcuts")
+        section = Gtk.ShortcutsSection(max_height=17, title="Shortcuts")
         for title, shortcuts in (
                 ("Dashboard", (
                     ("<Alt>1...9", "Open Task"),
@@ -74,6 +74,7 @@ class ShortcutsWindow(Gtk.ShortcutsWindow):
                     # A toggle, so this is the way back from the
                     # dashboard too, the tasks being what it zooms in to.
                     ("F4", "Dashboard"),
+                    ("F10", "Main Menu"),
                     ("<Control>w", "Close Task"),
                     ("<Control>q", "Quit"),
                 ))):

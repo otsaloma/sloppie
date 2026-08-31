@@ -41,6 +41,11 @@ Document what you do take below.
 | F4            | Dashboard    | nothing in readline or tty; TUI apps lose F4    |
 | F5            | Run command  | nothing in readline or tty; TUI apps lose F5    |
 | Shift+F5      | Set command  | same as F5: nothing in readline or tty          |
+| F10           | Main menu    | nothing in readline or tty; TUI apps lose F10   |
+
+F10 is not ours: GtkWindow handles it (`handle-menubar-accel`, true by
+default) and pops up the menu button that has `primary` set, which the
+hamburger in the header bar does.
 
 When unsure what to do about VTE keybindings and other behaviour: check
 how does it work in Ptyxis. That's what I use as my regular terminal and

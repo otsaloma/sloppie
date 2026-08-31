@@ -152,8 +152,18 @@ def trash(directory):
     # being system internal mounts to GLib.
     Gio.File.new_for_path(str(directory)).trash(None)
 
-def get_setup_command(branch):
+def get_setup_command(branch, command=None):
     """Return the shell commands that make the copy a subtask of `branch`."""
     # Substituted by hand rather than by str.format, which would take
     # the braces that shell writes freely for fields of its own.
-    return SETUP.replace("{branch}", shlex.quote(branch))
+    setup = SETUP.replace("{branch}", shlex.quote(branch))
+    if command:
+        # The repository's own 'setup-command', for whatever a copy needs
+        # that a copy cannot have: a virtualenv holds the path it was
+        # made at in the shebang of every script in it, so anything of
+        # the kind is the user's to fix here. Last of all, so that it can
+        # count on the branch being there and on direnv having allowed
+        # the copy, and traced like the rest, so that a command that says
+        # nothing for itself is still seen to have run.
+        setup += f"set -x\n{command}\n{{ set +x; }} 2>/dev/null\n"
+    return setup

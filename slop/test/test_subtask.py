@@ -104,6 +104,13 @@ class TestSubtask(slop.test.TestCase):
         command = subtask.get_setup_command(branch)
         assert "git switch -c 'fix-$(id);x'" in command
 
+    def test_the_setup_command_ends_with_the_configured_one(self):
+        command = subtask.get_setup_command("feature", "tools/setup.sh")
+        assert command.rstrip().endswith("{ set +x; } 2>/dev/null")
+        # After the branch is made and after direnv is allowed, both of
+        # which whatever is set up here can count on having happened.
+        assert command.index("tools/setup.sh") > command.index("direnv allow")
+
     def _fork(self, branch, expect_error=False):
         """Fork `branch` and return where it went, waiting for the copy."""
         # The copy runs as a subprocess and reports back through the

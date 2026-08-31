@@ -90,7 +90,7 @@ class TaskPage(Gtk.Overlay):
         self.status = "working"
         # The state of the window's wrap toggle while this task is the
         # one shown, starting out as it was left for this repository.
-        self.wrap_lines = self.config.read_item("wrap-lines", True)
+        self.wrap_lines = self.config.read_item("wrap-lines")
         # The stack of views, which the window's switcher is pointed at
         # for as long as this is the task shown.
         self.stack = None
@@ -512,12 +512,11 @@ class TaskPage(Gtk.Overlay):
                                       Gtk.WrapMode.NONE)
 
     def configure(self):
-        # Give emacs an existing file to edit, so that it starts from
-        # valid JSON rather than an empty buffer in a directory that it
-        # would have to offer to create.
-        if not self.config.path.exists():
-            self.config.path.parent.mkdir(parents=True, exist_ok=True)
-            self.config.path.write_text("{}\n", "utf-8")
+        # Give emacs an existing file to edit, holding every item there
+        # is, so that it starts from valid JSON with all the keys spelled
+        # out rather than an empty buffer in a directory that it would
+        # have to offer to create.
+        self.config.write_as_full()
         self._edit(str(self.config.path))
 
     def _on_poll_timeout(self):

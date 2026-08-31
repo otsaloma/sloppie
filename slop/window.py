@@ -130,7 +130,11 @@ class Window(Gtk.ApplicationWindow):
             # The git half of the forking is the terminal's to run, so
             # that it can be watched and answered, and the task lands on
             # that terminal, which is where the user was headed anyway.
-            self.open_task(str(directory), subtask.get_setup_command(branch))
+            # The configuration is the one the copy shares with the
+            # repository forked from, so either has the same to say.
+            setup = subtask.get_setup_command(
+                branch, slop.Config(repository).read_item("setup-command"))
+            self.open_task(str(directory), setup)
 
         # A copy takes long enough to need saying that it is happening,
         # a repository of any size being gigabytes of virtualenv and

@@ -60,7 +60,7 @@ class RunDialog(Gtk.Window):
         # rather than run off the edge of the view.
         self._view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         buffer = self._view.get_buffer()
-        buffer.set_text(self.config.read_item("run-command", ""))
+        buffer.set_text(self.config.read_item("run-command") or "")
         # Start with the whole command selected, so that typing replaces
         # it, this usually being either a first or a fresh command.
         buffer.select_range(*buffer.get_bounds())

@@ -7,7 +7,8 @@ to my preferences, including hard-code things like fonts in code. We
 don't need config files, preferences dialogs, user interface
 translations, none of that. We're targeting only Linux + GNOME + Wayland
 — it's the same system you're running on. Design-wise we want to follow
-GNOME/Adwaita look and feel (but not use the Adwaita library).
+GNOME/Adwaita look and feel (but not use the Adwaita library). We don't
+need to support dark mode.
 
 ## Keybindings
 

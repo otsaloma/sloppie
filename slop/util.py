@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import gi
 import json
 import sys
 
@@ -22,11 +23,43 @@ from gi.repository import GLib
 from gi.repository import Gtk
 from gi.repository import Pango
 
+try:
+    # Adw is used only in this module.
+    gi.require_version("Adw", "1")
+    from gi.repository import Adw
+    Adw.init()
+    Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
+except (ImportError, ValueError):
+    Adw = None
+
 # The error dialog currently shown, if any.
 error_dialog = None
 
 def confirm(parent, message, detail, label):
     """Return ``True`` if the user chooses `label`."""
+    # Either AlertDialog only has an asynchronous API, so run a nested
+    # main loop to be able to return the response to the caller. Both
+    # are told which response cancels, so that dismissing gives us that
+    # instead of an error.
+    loop = GLib.MainLoop()
+    response = None
+    def on_done(dialog, result):
+        nonlocal response
+        response = dialog.choose_finish(result)
+        loop.quit()
+    if Adw is not None:
+        # Everything asked here is about discarding something that git
+        # or the trash cannot always give back, hence the destructive
+        # appearance, which GTK's own dialog has no way to give.
+        dialog = Adw.AlertDialog(heading=message, body=detail)
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("confirm", label)
+        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_close_response("cancel")
+        dialog.set_default_response("cancel")
+        dialog.choose(parent, None, on_done)
+        loop.run()
+        return response == "confirm"
     dialog = Gtk.AlertDialog(modal=True,
                              message=message,
                              detail=detail,
@@ -34,15 +67,6 @@ def confirm(parent, message, detail, label):
                              cancel_button=0,
                              default_button=0)
 
-    # AlertDialog only has an asynchronous API, so run a nested main
-    # loop to be able to return the response to the caller. Having
-    # cancel_button set, dismissing gives us that instead of an error.
-    loop = GLib.MainLoop()
-    response = 0
-    def on_done(dialog, result):
-        nonlocal response
-        response = dialog.choose_finish(result)
-        loop.quit()
     dialog.choose(parent, None, on_done)
     loop.run()
     return response == 1

@@ -57,10 +57,12 @@ repository, ask a coding agent to customize the font, colors, editor
 etc. to your preferences and use that clone instead.
 
 Sloppie requires Git, Python ≥3.10, PyGObject ≥3.42, GTK 4.x,
-GtkSourceView 5.x and VTE ≥0.76. On Debian/Ubuntu you can install the
-dependencies with the following command.
+GtkSourceView 5.x and VTE ≥0.76. libadwaita ≥1.5 is optional. On
+Debian/Ubuntu you can install the dependencies with the following
+command.
 
-    sudo apt install gir1.2-gtk-4.0 \
+    sudo apt install gir1.2-adw-1 \
+                     gir1.2-gtk-4.0 \
                      gir1.2-gtksource-5 \
                      gir1.2-vte-3.91 \
                      git \

@@ -358,12 +358,6 @@ class CommentSidebar(Gtk.Box):
                         sent=x.get("sent", False))
                 for x in items]
 
-    def _commit(self, comments):
-        """Take `comments` as the comments there are, and write them."""
-        self._comments = comments
-        self._write()
-        self._update_cards()
-
     def _modify(self, uids, **fields):
         """Set `fields` on the comments in `uids`, keeping what others wrote."""
         # Read afresh and change only the comments this is about, rather
@@ -377,31 +371,27 @@ class CommentSidebar(Gtk.Box):
             if comment.uid not in uids: continue
             for name, value in fields.items():
                 setattr(comment, name, value)
-        self._commit(comments)
-
-    def _add(self, comment):
-        """Add `comment` to the comments on file, keeping what others wrote."""
-        comments = self._read()
-        comments.append(comment)
-        self._commit(comments)
+        self._write(comments)
 
     def _remove(self, uids):
         """Drop the comments in `uids`, keeping what others wrote."""
-        self._commit([x for x in self._read() if x.uid not in uids])
+        self._write([x for x in self._read() if x.uid not in uids])
 
-    def _write(self):
-        """Write the comments of all branches to file."""
+    def _write(self, comments):
+        """Take `comments` as the comments of all branches, writing them to file."""
+        self._comments = comments
         path = self._get_file()
-        if not self._comments:
+        if comments:
+            items = [{"uid": x.uid, "branch": x.branch,
+                      "created_at": x.created_at, "path": x.path,
+                      "hunk": x.hunk, "text": x.text, "sent": x.sent}
+                     for x in comments]
+            util.write_json(items, path)
+        else:
             # Leave no file behind once the last comment is gone.
             with suppress(Exception):
                 path.unlink(missing_ok=True)
-            return
-        items = [{"uid": x.uid, "branch": x.branch,
-                  "created_at": x.created_at, "path": x.path,
-                  "hunk": x.hunk, "text": x.text, "sent": x.sent}
-                 for x in self._comments]
-        util.write_json(items, path)
+        self._update_cards()
 
     def _init_card(self, comment):
         """Return a card showing `comment`."""
@@ -552,7 +542,8 @@ class CommentSidebar(Gtk.Box):
     def add_comment(self, text, path=None, hunk=None):
         """Add and return a comment on `path` and `hunk`, saving it to file."""
         comment = Comment(branch=self._branch, path=path, hunk=hunk, text=text)
-        self._add(comment)
+        # Read afresh, as in _modify, so as to keep what others wrote.
+        self._write([*self._read(), comment])
         return comment
 
     def set_branch(self, branch):

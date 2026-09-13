@@ -273,7 +273,7 @@ class TaskRow(Gtk.ListBoxRow):
                      if subtask.get_directory(root, x).name == self.path.name), None)
 
     def _on_close_clicked(self, button):
-        self.get_ancestor(Dashboard).emit("close-task", str(self.path))
+        self.get_ancestor(Dashboard).emit("close-task", self.path)
 
     def _on_clear_clicked(self, button):
         # Only recent, so there is no task for the window to close, only
@@ -291,10 +291,10 @@ class TaskRow(Gtk.ListBoxRow):
         popover.popup()
 
     def _on_subtask_forked(self, popover, branch):
-        self.get_ancestor(Dashboard).emit("add-subtask", str(self.path), branch)
+        self.get_ancestor(Dashboard).emit("add-subtask", self.path, branch)
 
     def _on_trash_clicked(self, button):
-        self.get_ancestor(Dashboard).emit("trash-task", str(self.path))
+        self.get_ancestor(Dashboard).emit("trash-task", self.path)
 
 class SubtaskPopover(Gtk.Popover):
 
@@ -449,7 +449,7 @@ class TaskGroup(Gtk.Box):
         # A subtask still being copied is no repository yet and so
         # nothing that a task can be opened on.
         if not isinstance(row, TaskRow): return
-        self.get_ancestor(Dashboard).emit("open-task", str(row.path))
+        self.get_ancestor(Dashboard).emit("open-task", row.path)
 
     def get_rows(self):
         """Return the rows of the group, in the order shown."""
@@ -477,10 +477,10 @@ class Dashboard(Gtk.Box):
     # The path of the repository is the identity of a task, the window
     # holding the tasks themselves and doing the opening and closing.
     __gsignals__ = {
-        "open-task": (GObject.SignalFlags.RUN_LAST, None, (str,)),
-        "close-task": (GObject.SignalFlags.RUN_LAST, None, (str,)),
-        "add-subtask": (GObject.SignalFlags.RUN_LAST, None, (str, str)),
-        "trash-task": (GObject.SignalFlags.RUN_LAST, None, (str,)),
+        "open-task": (GObject.SignalFlags.RUN_LAST, None, (object,)),
+        "close-task": (GObject.SignalFlags.RUN_LAST, None, (object,)),
+        "add-subtask": (GObject.SignalFlags.RUN_LAST, None, (object, str)),
+        "trash-task": (GObject.SignalFlags.RUN_LAST, None, (object,)),
     }
 
     def __init__(self):
@@ -575,7 +575,7 @@ class Dashboard(Gtk.Box):
         except Exception:
             # The user dismissed the dialog.
             return
-        self.emit("open-task", file.get_path())
+        self.emit("open-task", Path(file.get_path()))
 
     def set_tasks(self, tasks):
         """Rebuild the cards for `tasks` and the repositories recently opened."""

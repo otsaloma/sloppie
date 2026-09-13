@@ -68,7 +68,7 @@ class TestDashboard(slop.test.TestCase):
 
     def test_closing_a_task_returns_to_the_dashboard(self):
         self._activate_row(0)
-        self.window.close_task(str(self.root))
+        self.window.close_task(self.root)
         assert self.window._page is None
         assert not self.window._tasks
         assert self._get_row(0).task is None
@@ -76,7 +76,7 @@ class TestDashboard(slop.test.TestCase):
     def test_closing_a_task_stops_its_poll(self):
         self._activate_row(0)
         task = self.window._page
-        self.window.close_task(str(self.root))
+        self.window.close_task(self.root)
         assert task._poll_source is None
 
     def test_clearing_a_recent_repository_drops_its_row(self):
@@ -105,8 +105,8 @@ class TestDashboard(slop.test.TestCase):
     def test_an_open_subtask_brings_its_parent_along(self):
         path = self._record_subtask(self.root)
         other = slop.test.new_repository()
-        self.window.open_task(str(other))
-        self.window.open_task(str(path))
+        self.window.open_task(other)
+        self.window.open_task(path)
         self.window._show_dashboard()
         # The group is open because the subtask is, so it sorts among
         # the open ones by the name of the repository it was forked
@@ -153,7 +153,7 @@ class TestDashboard(slop.test.TestCase):
         path = self._record_subtask(self.root)
         self.window._update_dashboard()
         with self._trash_to(shutil.rmtree) as trashed:
-            self.window.trash_task(str(path))
+            self.window.trash_task(path)
         assert trashed == [str(path)]
         assert not path.exists()
         assert path not in recent.list_repositories()
@@ -161,9 +161,9 @@ class TestDashboard(slop.test.TestCase):
 
     def test_trashing_an_open_subtask_closes_it_first(self):
         path = self._record_subtask(self.root)
-        self.window.open_task(str(path))
+        self.window.open_task(path)
         with self._trash_to(shutil.rmtree):
-            self.window.trash_task(str(path))
+            self.window.trash_task(path)
         # Closed before the directory went, so that the shells running
         # there were hung up rather than left where it used to be.
         assert not self.window._tasks
@@ -175,7 +175,7 @@ class TestDashboard(slop.test.TestCase):
         def refuse(path):
             raise RuntimeError("Trashing on system internal mounts")
         with self._trash_to(refuse):
-            self.window.trash_task(str(path))
+            self.window.trash_task(path)
         # Still there to be looked at or trashed again, rather than
         # dropped from the list while the directory is where it was.
         assert path.exists()

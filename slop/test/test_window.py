@@ -43,7 +43,7 @@ class TestWindow(slop.test.TestCase):
         assert not self.window.lookup_action("close-task").get_enabled()
 
     def test_quitting_asks_nothing_without_tasks(self):
-        self.window.close_task(str(self.root))
+        self.window.close_task(self.root)
         # False lets the close go ahead, no question asked.
         assert self.window._on_close_request(self.window) is False
 

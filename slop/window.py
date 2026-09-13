@@ -17,7 +17,6 @@
 
 import slop
 
-from pathlib import Path
 from slop import recent
 from slop import subtask
 from slop import util
@@ -134,7 +133,7 @@ class Window(Gtk.ApplicationWindow):
             # repository forked from, so either has the same to say.
             setup = subtask.get_setup_command(
                 branch, slop.Config(repository).read_item("setup-command"))
-            self.open_task(str(directory), setup)
+            self.open_task(directory, setup)
 
         # A copy takes long enough to need saying that it is happening,
         # a repository of any size being gigabytes of virtualenv and
@@ -147,8 +146,7 @@ class Window(Gtk.ApplicationWindow):
         # Always asked, whether or not anything runs in it: what goes is
         # a whole checkout and the branch that only ever existed in it,
         # neither of which git can give back.
-        name = Path(path).name
-        if util.confirm(self, f"Move {name} to the trash?",
+        if util.confirm(self, f"Move {path.name} to the trash?",
                         "The subtask and the work on its branch can only "
                         "be had back from the trash.",
                         "Trash"):
@@ -165,14 +163,14 @@ class Window(Gtk.ApplicationWindow):
             # Left in the list, so that it can be opened again or
             # trashed once whatever stopped this has been seen to.
             return util.show_error(
-                self, f"Failed to trash {Path(path).name}", error)
+                self, f"Failed to trash {path.name}", error)
         recent.remove_repository(path)
         self._update_dashboard()
 
     def close_task(self, path):
         """Close the task for the repository at `path`."""
         for task in list(self._tasks):
-            if str(task.repository.root) != path: continue
+            if task.repository.root != path: continue
             shown = task is self._page
             self._tasks.remove(task)
             if self._last_task is task:
@@ -215,7 +213,7 @@ class Window(Gtk.ApplicationWindow):
                 f"Close {page.repository.root.name}?",
                 "Whatever is running in its terminals will be stopped.",
                 "Close"):
-            self.close_task(str(page.repository.root))
+            self.close_task(page.repository.root)
 
     def _on_close_request(self, window):
         """Ask before quitting with tasks open, and stop if told to."""

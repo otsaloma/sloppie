@@ -44,7 +44,6 @@ class TaskRow(Gtk.ListBoxRow):
         # The repository this was forked from, which makes it a subtask
         # and decides which buttons it gets.
         self.parent = parent
-        self._add = None
         self._comments = None
         self._dismiss = None
         self._lines_added = None
@@ -53,7 +52,6 @@ class TaskRow(Gtk.ListBoxRow):
         self._pull_request = None
         self._running = None
         self._title = None
-        self._trash = None
         # What the group packs beside the row, outside the frame, see
         # TaskGroup. Filled in below, but held by the row itself, the
         # tag being one more thing the row has to say for itself.
@@ -128,15 +126,13 @@ class TaskRow(Gtk.ListBoxRow):
         # it, hence subtasks alone, those being the copies that Sloppie
         # made in the first place. Every row has the one or the other.
         if self.parent is None:
-            self._add = self._new_button("media-playlist-shuffle-symbolic",
-                                         "Add Subtask",
-                                         self._on_add_subtask_clicked)
-            box.append(self._add)
+            box.append(self._new_button("media-playlist-shuffle-symbolic",
+                                        "Add Subtask",
+                                        self._on_add_subtask_clicked))
         else:
-            self._trash = self._new_button("user-trash-symbolic",
-                                           "Trash",
-                                           self._on_trash_clicked)
-            box.append(self._trash)
+            box.append(self._new_button("user-trash-symbolic",
+                                        "Trash",
+                                        self._on_trash_clicked))
         # Last, at the very end of the row: closing an open task, but
         # clearing one that is only recent, there being nothing left to
         # close. A subtask has no clearing, only trashing: clearing it

@@ -239,46 +239,29 @@ class Window(Gtk.ApplicationWindow):
             self._sync_header()
 
     def _init_actions(self):
-        # These are the actions of the file sidebar's context menu, which
-        # shows the accelerators added to the shortcut controller below.
-        # They start out disabled, being no-ops without a file selected.
-        # The shortcuts run in the capture phase, so that they beat the
+        # The actions of the task shown, each performed by the method of
+        # the same name. The first four are also the file sidebar's
+        # context menu, which shows the accelerators added here. The
+        # shortcuts run in the capture phase, so that they beat the
         # terminal, which would eat them and pass them on to the shell.
         shortcuts = Gtk.ShortcutController(
             propagation_phase=Gtk.PropagationPhase.CAPTURE)
-        for name, accelerator, method in (
-                ("stage", "<Control>s", "stage"),
-                ("unstage", "<Control>u", "unstage"),
-                ("revert", None, "revert"),
-                ("trash", None, "trash")):
+        for name, accelerator in (
+                ("stage", "<Control>s"),
+                ("unstage", "<Control>u"),
+                ("revert", None),
+                ("trash", None),
+                ("edit", "<Control>e"),
+                ("commit", "<Control>Return"),
+                ("add-comment", "<Control>m"),
+                ("send-comments", None),
+                ("delete-sent-comments", None),
+                ("run", "F5"),
+                ("configure-run", "<Shift>F5"),
+                ("resume-agent", "<Shift><Control>r"),
+                ("configure", None)):
             action = Gio.SimpleAction(name=name, enabled=False)
-            action.connect("activate", self._on_task_action, method)
-            self.add_action(action)
-            if accelerator is None: continue
-            shortcuts.add_shortcut(Gtk.Shortcut(
-                trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
-                action=Gtk.NamedAction.new(f"win.{name}")))
-        # Everything else the task can do is always possible while there
-        # is a task: editing works without a file selected too, opening
-        # the whole repository in dired; an amend can be committed even
-        # without staged changes; a comment can be written at any time,
-        # with no file selected too, being a comment on the changes as a
-        # whole; there is an agent session to resume or a toast to say
-        # that there isn't. Ctrl+Enter, Ctrl+M, Shift+Ctrl+R and F5 need
-        # the capture phase, the terminal otherwise passing them on to
-        # the shell.
-        for name, accelerator, method in (
-                ("edit", "<Control>e", "edit"),
-                ("commit", "<Control>Return", "commit"),
-                ("add-comment", "<Control>m", "add_comment"),
-                ("send-comments", None, "send_comments"),
-                ("delete-sent-comments", None, "delete_sent_comments"),
-                ("run", "F5", "run"),
-                ("configure-run", "<Shift>F5", "configure_run"),
-                ("resume-agent", "<Shift><Control>r", "resume_agent"),
-                ("configure", None, "configure")):
-            action = Gio.SimpleAction(name=name, enabled=False)
-            action.connect("activate", self._on_task_action, method)
+            action.connect("activate", self._on_task_action, name.replace("-", "_"))
             self.add_action(action)
             if accelerator is None: continue
             shortcuts.add_shortcut(Gtk.Shortcut(

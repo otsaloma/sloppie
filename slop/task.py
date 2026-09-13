@@ -326,8 +326,7 @@ class TaskPage(Gtk.Overlay):
             return False
         # Show the terminal, the paste being there to be read and sent
         # by the user, who presses Enter, which we deliberately don't.
-        self.stack.set_visible_child_name("terminal-1")
-        self.focus_shown_view()
+        self.focus("terminal-1")
         # Paste rather than feed the text, which is to say as bracketed
         # paste, where the agent takes it for text and not for keys
         # pressed, and where VTE strips the control characters that a
@@ -348,8 +347,7 @@ class TaskPage(Gtk.Overlay):
         terminal = self._terminals[0]
         if terminal.is_running():
             return self._toast.flash("Something is running in the terminal")
-        self.stack.set_visible_child_name("terminal-1")
-        self.focus_shown_view()
+        self.focus("terminal-1")
         # Typed into the shell as the user would type it, Enter and all,
         # this being a button pressed to have the agent back, not a
         # command to look over first.
@@ -407,9 +405,9 @@ class TaskPage(Gtk.Overlay):
 
     def switch_tab(self, step):
         """Step `step` tabs right in the stack, wrapping around."""
-        names = ["diff"] + [f"terminal-{i+1}" for i in range(len(self._terminals))]
-        index = names.index(self.stack.get_visible_child_name()) + step
-        self.stack.set_visible_child_name(names[index % len(names)])
+        children = list(self.stack)
+        index = children.index(self.stack.get_visible_child()) + step
+        self.stack.set_visible_child(children[index % len(children)])
         self.focus_shown_view()
 
     def _on_terminal_bell(self, terminal, page, index):
@@ -539,10 +537,9 @@ class TaskPage(Gtk.Overlay):
         # anything else running, be it an agent thinking or a build, is
         # working and wants nothing.
         command = self._terminals[0].get_command()
+        page = self.stack.get_page(self._terminals[0].get_parent())
         status = ("waiting"
-                  if command in AGENTS and
-                  self.stack.get_page(self.stack.get_child_by_name("terminal-1"))
-                            .get_needs_attention() else
+                  if command in AGENTS and page.get_needs_attention() else
                   "working")
         elapsed = format_elapsed(self._terminals[0].get_command_elapsed())
         comments = self._comment_sidebar.count_unsent()

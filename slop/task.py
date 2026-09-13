@@ -139,9 +139,6 @@ class TaskPage(Gtk.Overlay):
             terminal.connect("bell", self._on_terminal_bell, page, i)
             terminal.connect("command-finished",
                              self._on_terminal_command_finished, page, i)
-        # Files | diff or terminal | comments, with the middle
-        # getting the extra space and the sidebars always visible.
-        # Sidebar widths are set dynamically in do_size_allocate.
         self._right_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self._right_paned.set_start_child(self.stack)
         self._right_paned.set_resize_start_child(True)
@@ -201,7 +198,7 @@ class TaskPage(Gtk.Overlay):
         if by_user and change is not None:
             self._show_diff_view()
         # Let the window enable only the actions that apply to the file
-        # selected. Staged changes are reverted by unstaging them first.
+        # selected.
         self.emit("changed")
         # A refresh reselects the file selected, which lands here just
         # like the user picking a file. Only the latter should send the

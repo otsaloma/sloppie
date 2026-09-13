@@ -190,9 +190,7 @@ class Window(Gtk.ApplicationWindow):
             return
 
     def _update_dashboard(self):
-        # Latest opened first, that being the one most likely worked on
-        # and the one the user would look for at the top of the list.
-        self._dashboard.set_tasks(list(reversed(self._tasks)))
+        self._dashboard.set_tasks(self._tasks)
 
     def _show_task(self, task):
         self._stack.set_visible_child(task)
@@ -411,8 +409,6 @@ class Window(Gtk.ApplicationWindow):
         button.add_css_class("image-button")
         header.pack_start(button)
 
-        # The icon theme has no commit icon, a save icon being the
-        # closest thing.
         commit = Gtk.Button(action_name="win.commit",
                             icon_name="object-select-symbolic",
                             tooltip_text="Commit (Ctrl+Enter)")

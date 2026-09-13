@@ -46,27 +46,18 @@ stackswitcher > button.text-button.slop-narrow-tab {
   color: @error_color;
 }
 
-.slop-diff-view {
+.slop-commit-view, .slop-comment-view, .slop-diff-view, .slop-run-view {
   line-height: 1.4;
-  padding: 12px 0;
 }
 
-.slop-commit-view {
-  line-height: 1.4;
+.slop-diff-view {
+  padding: 12px 0;
 }
 
 /* The style scheme gives the text an opaque background, which is drawn
    over the layer that the right margin line is drawn in, hiding it. */
 .slop-commit-view text {
   background-color: transparent;
-}
-
-.slop-comment-view {
-  line-height: 1.4;
-}
-
-.slop-run-view {
-  line-height: 1.4;
 }
 
 .slop-attention-dot {
@@ -97,22 +88,6 @@ stackswitcher > button.text-button.slop-narrow-tab {
   font-weight: 500;
 }
 
-.slop-task-waiting {
-  background-color: mix(@theme_base_color, @success_color, 0.1);
-  border: 1px solid mix(@theme_base_color, @success_color, 0.3);
-  border-radius: 4px;
-  color: @success_color;
-  padding: 1px 5px;
-}
-
-.slop-task-working {
-  background-color: mix(@theme_base_color, @theme_fg_color, 0.1);
-  border: 1px solid mix(@theme_base_color, @theme_fg_color, 0.3);
-  border-radius: 4px;
-  color: @theme_fg_color;
-  padding: 1px 5px;
-}
-
 .slop-task-card .monospace {
   font-size: 11px;
 }
@@ -121,28 +96,38 @@ stackswitcher > button.text-button.slop-narrow-tab {
   opacity: 0.5;
 }
 
-.slop-task-comments {
-  background-color: mix(@theme_base_color, @theme_selected_bg_color, 0.1);
-  border: 1px solid mix(@theme_base_color, @theme_selected_bg_color, 0.3);
+.slop-task-comments,
+.slop-task-lines-added,
+.slop-task-lines-removed,
+.slop-task-pull-request,
+.slop-task-waiting,
+.slop-task-working {
   border-radius: 4px;
-  color: @theme_selected_bg_color;
   padding: 1px 5px;
 }
 
-.slop-task-lines-added {
+.slop-task-comments {
+  background-color: mix(@theme_base_color, @theme_selected_bg_color, 0.1);
+  border: 1px solid mix(@theme_base_color, @theme_selected_bg_color, 0.3);
+  color: @theme_selected_bg_color;
+}
+
+.slop-task-lines-added, .slop-task-waiting {
   background-color: mix(@theme_base_color, @success_color, 0.1);
   border: 1px solid mix(@theme_base_color, @success_color, 0.3);
-  border-radius: 4px;
   color: @success_color;
-  padding: 1px 5px;
 }
 
 .slop-task-lines-removed {
   background-color: mix(@theme_base_color, @error_color, 0.1);
   border: 1px solid mix(@theme_base_color, @error_color, 0.3);
-  border-radius: 4px;
   color: @error_color;
-  padding: 1px 5px;
+}
+
+.slop-task-working {
+  background-color: mix(@theme_base_color, @theme_fg_color, 0.1);
+  border: 1px solid mix(@theme_base_color, @theme_fg_color, 0.3);
+  color: @theme_fg_color;
 }
 
 /* Undo some link button styling. */
@@ -150,12 +135,10 @@ stackswitcher > button.text-button.slop-narrow-tab {
   background-color: mix(@theme_base_color, #9e46e6, 0.1);
   background-image: none;
   border: 1px solid mix(@theme_base_color, #9e46e6, 0.3);
-  border-radius: 4px;
   color: #9e46e6;
   font-size: 11px;
   min-height: 0;
   min-width: 0;
-  padding: 1px 5px;
 }
 
 .slop-task-pull-request label {

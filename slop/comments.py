@@ -240,7 +240,7 @@ class CommentDialog(Gtk.Window):
         self._button.connect("clicked", lambda *args: self._save())
         self._send.connect("clicked", lambda *args: self._send_to_agent())
         if self._move is not None:
-            self._move.connect("clicked", lambda *args: self._move_to_current())
+            self._move.connect("clicked", self._on_move_clicked)
         buffer = self._view.get_buffer()
         buffer.connect("changed", lambda *args: self._update_button())
         self._update_button()
@@ -280,8 +280,8 @@ class CommentDialog(Gtk.Window):
         self.emit("sent", self._get_text())
         self.close()
 
-    def _move_to_current(self):
-        """Have the comment moved to the current branch."""
+    def _on_move_clicked(self, button):
+        """Have the comment moved onto or off the current branch."""
         # Moving is saving too, the text being kept as edited, the same
         # as when sending.
         self.emit("moved", self._get_text())

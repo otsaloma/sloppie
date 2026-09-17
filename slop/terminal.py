@@ -34,7 +34,7 @@ from slop import util
 
 # The coding agents known by name: what a terminal is here to run,
 # what a comment can be sent to and what has a status worth showing.
-AGENTS = ("claude", "codex")
+AGENTS = ("claude", "codex", "pi")
 
 def parse_color(color):
     """Return hexadecimal `color` as a `Gdk.RGBA`."""
@@ -249,14 +249,15 @@ class Terminal(Vte.Terminal):
 
     def _store_resume_command(self, command):
         """Record how to get back to the session `command` has just left."""
-        # Both agents print that on quitting: claude as a ready command,
-        # codex as prose with the session id in parentheses. Either way
-        # the id follows the words that resume it, so read what's on
-        # screen above the prompt and take the last such pair found.
+        # The agents print that on quitting: claude and pi as a ready
+        # command, codex as prose with the session id in parentheses.
+        # Either way the id follows the words that resume it, so read
+        # what's on screen above the prompt and take the last such pair
+        # found.
         column, row = self.get_cursor_position()
         text, length = self.get_text_range_format(
             Vte.Format.TEXT, max(0, row - 50), 0, row, -1)
-        pairs = re.findall("(" + command + r" (?:--resume|resume))\b.{0,200}?"
+        pairs = re.findall("(" + command + r" (?:--resume|resume|--session))\b.{0,200}?"
                            r"([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})",
                            text, re.DOTALL)
         if not pairs: return

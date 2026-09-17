@@ -77,7 +77,7 @@ class TestCommentSidebar(slop.test.TestCase):
 
     def test_a_comment_written_before_uids_gets_one(self):
         # The file as older versions left it, with no uid on anything.
-        path = self.repository.git_dir / "sloppie" / "comments.json"
+        path = self.repository.git_common_dir / "sloppie" / "comments.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps([{"text": "old", "branch": "master"}]), "utf-8")
         sidebar = slop.CommentSidebar(self.repository)
@@ -91,9 +91,9 @@ class TestCommentSidebar(slop.test.TestCase):
     def test_the_file_goes_with_the_last_comment(self):
         comment = self.mine.add_comment("mine")
         self.mine._remove([comment.uid])
-        assert not (self.repository.git_dir / "sloppie" / "comments.json").exists()
+        assert not (self.repository.git_common_dir / "sloppie" / "comments.json").exists()
 
     def _read(self):
         """Return the comments as they are on file."""
-        path = self.repository.git_dir / "sloppie" / "comments.json"
+        path = self.repository.git_common_dir / "sloppie" / "comments.json"
         return json.loads(path.read_text("utf-8"))

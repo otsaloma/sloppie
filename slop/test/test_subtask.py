@@ -71,12 +71,12 @@ class TestSubtask(slop.test.TestCase):
         # Shared rather than copied, so that comments written in the
         # subtask outlive it, they being written against a branch.
         assert link.is_symlink()
-        assert link.resolve() == (self.repository.git_dir / "sloppie").resolve()
+        assert link.resolve() == (self.repository.git_common_dir / "sloppie").resolve()
 
     def test_forking_leaves_no_index_lock(self):
         # As copying a repository mid-command would, which would leave
         # the copy unable to run any git command at all.
-        (self.repository.git_dir / "index.lock").write_text("", "utf-8")
+        (self.repository.git_common_dir / "index.lock").write_text("", "utf-8")
         directory = self._fork("feature")
         assert not (directory / ".git" / "index.lock").exists()
 

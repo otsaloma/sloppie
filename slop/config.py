@@ -31,7 +31,7 @@ class Config:
     """Configuration items of a repository, kept in a JSON file."""
 
     def __init__(self, repository):
-        self.path = repository.git_dir / "sloppie" / "config.json"
+        self.path = repository.git_common_dir / "sloppie" / "config.json"
 
     def read_item(self, key):
         """Return the value of `key`, or its default if not set."""

@@ -131,7 +131,7 @@ def _finish(repository, partial, directory):
     # worth keeping once the subtask that they were written in is gone.
     # The link is absolute, a relative one being read from the directory
     # holding the link and not from the one it is written in.
-    shared = repository.git_dir / "sloppie"
+    shared = repository.git_common_dir / "sloppie"
     shared.mkdir(parents=True, exist_ok=True)
     link = partial / ".git" / "sloppie"
     if link.is_symlink():

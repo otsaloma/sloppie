@@ -344,7 +344,7 @@ class CommentSidebar(Gtk.Box):
         # One file for the whole repository rather than one per branch:
         # comments outlive the branch they were written against, work
         # commented on in one go often being split over branches.
-        return self.repository.git_dir / "sloppie" / "comments.json"
+        return self.repository.git_common_dir / "sloppie" / "comments.json"
 
     def _read(self):
         """Return the comments of all branches, read from file."""

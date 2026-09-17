@@ -262,10 +262,10 @@ class CommentDialog(Gtk.Window):
 
     def _update_button(self):
         # An empty comment is no comment at all.
-        self._button.set_sensitive(bool(self._get_text()))
-        self._send.set_sensitive(bool(self._get_text()))
-        if self._move is not None:
-            self._move.set_sensitive(bool(self._get_text()))
+        enabled = bool(self._get_text())
+        for button in (self._button, self._send, self._move):
+            if button is not None:
+                button.set_sensitive(enabled)
 
     def _save(self):
         # Reachable with nothing typed by way of Ctrl+Enter, which,

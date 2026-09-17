@@ -190,7 +190,7 @@ class FileSidebar(Gtk.Box):
         self._menu.set_pointing_to(rectangle)
         self._menu.popup()
 
-    def _on_selected_item_changed(self, *args, **kwargs):
+    def _on_selected_item_changed(self, *args):
         self.emit("change-selected", self._selection.get_selected_item(), True)
 
     def focus_section(self, section):

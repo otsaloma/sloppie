@@ -374,8 +374,8 @@ class Terminal(Vte.Terminal):
 
     def get_command(self):
         """Return the name of the command running, ``None`` if at the prompt."""
-        # Whatever the poll last saw, which is the command that the
-        # shell started, not the children it went on to start itself.
+        # The last polled name, preferring an agent among the leader's
+        # descendants over the wrapper that the shell started.
         return self._command
 
     def get_command_elapsed(self):

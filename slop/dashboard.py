@@ -90,18 +90,9 @@ class TaskRow(Gtk.ListBoxRow):
         if self.task:
             self._init_widgets_status(grid)
         self.set_child(grid)
-        # Where the branch got to on GitHub, which is why it hangs
-        # outside the card: everything shown within is of this machine,
-        # a pull request is not. A link button, so that clicking it
-        # opens what it names and its menu offers to copy the address.
-        # Centered on the row rather than set level with the name, which
-        # puts it level with the buttons at the other end, those being
-        # centered on the card as well. Centering is the size group's to
-        # get right, the tag's box being exactly as tall as the row, and
-        # so holds whatever the theme's padding and the fonts do, where
-        # lining the tag up with a line of text would take a margin
-        # measured off a screenshot and remeasured whenever either
-        # changed.
+        # Keep GitHub state outside the card of local state. TaskGroup
+        # keeps the tag as tall as its row, so the link stays centered
+        # without margins tied to the theme or font.
         self._pull_request = Gtk.LinkButton(uri="",
                                             valign=Gtk.Align.CENTER,
                                             visible=False)
@@ -224,8 +215,7 @@ class TaskRow(Gtk.ListBoxRow):
 
     def update(self):
         """Update the card to match the state of the task."""
-        # A recent repository is not open and so has no state at all,
-        # its card having been given its dashes once and for all.
+        # Recent repositories have no task status widgets to update.
         if self.task is None: return
         self._title.set_label(self._get_title())
         # NOTHING rather than a blank where there is nothing to say, so

@@ -424,54 +424,31 @@ class TaskPage(Gtk.Overlay):
 
     def _alert_terminal(self, terminal, page, index, body):
         window = self.get_root()
-        # The switcher marks the tab with a dot, but only as long as it's
-        # not the tab on screen, so don't mark the one being looked at,
-        # which would leave a mark to appear on switching away from it.
-        # A terminal is on screen only if its own tab is the one shown
-        # and this task is the one the window shows, both of which the
-        # terminal being mapped says in one.
+        # Mark only unseen tabs. Being mapped means both this task and
+        # this terminal tab are shown; marking one already shown would
+        # leave a stale dot when switching away.
         if not terminal.get_mapped():
             page.set_needs_attention(True)
-            # An agent that rang is waiting, which the card should say
-            # at once rather than at the next poll, that being the very
-            # moment the user is waited on.
+            # Update the dashboard immediately, without waiting for a poll.
             self._update_status()
-            # The card in the dashboard shows this too, and the task
-            # rung at is likely not the one the user is looking at.
             self.emit("changed")
-        # Sitting at this very terminal, the user has seen it all
-        # happen, so skip the notification rather than pop one up on top
-        # of what it's about.
+        # No desktop notification while the user is at this terminal.
         if window.is_active() and window.get_focus() is terminal: return
-        # The dot is no use when the window is behind others, so also
-        # send a desktop notification. It carries our application id,
-        # which is how GNOME shows it under Sloppie's name and icon and,
-        # when clicked, raises a Sloppie window. Include the repository
-        # in the id, so that a second alert replaces the notification of
-        # the first, but another window's alerts keep their own.
+        # A desktop notification also reaches the user behind other windows.
         notification = Gio.Notification.new(self.repository.root.name)
         notification.set_body(body)
-        # The application id gets us a small icon in the header of the
-        # notification, an icon of our own gets the big one beside the
-        # text, the same as notify-send's --icon. Give it the same icon,
-        # there being nothing better to say than that this is Sloppie.
+        # Add the large body icon alongside GNOME's small application icon.
         notification.set_icon(Gio.ThemedIcon.new("io.otsaloma.sloppie"))
-        # Of the four priorities, only two do anything in GNOME Shell:
-        # HIGH differs from NORMAL by queue order alone, LOW is never
-        # shown as a banner. URGENT is the one that gets through Do Not
-        # Disturb and a fullscreen window, at the price of a banner that
-        # stays on screen until dismissed and a notification that stays
-        # in GNOME's list until cleared. GNotification has no transient
-        # flag, notify-send's --transient reaching no further than the
-        # freedesktop D-Bus interface, so take the notification back
-        # ourselves after a few seconds, which ends the banner too.
+        # URGENT bypasses GNOME's Do Not Disturb and fullscreen suppression;
+        # HIGH only changes queue order. Urgent banners stay until dismissed,
+        # and GNotification has no transient flag, so withdraw ours below.
         notification.set_priority(Gio.NotificationPriority.URGENT)
         application = window.get_application()
+        # Replace earlier alerts from this terminal, not other repositories.
         notification_id = f"{self.repository.root}-terminal-{index}"
         application.send_notification(notification_id, notification)
         if index in self._withdraw_sources:
-            # An alert following close on another one replaces it, so the
-            # withdrawal due for the first would cut the second short.
+            # The previous alert's timeout must not cut this one short.
             GLib.source_remove(self._withdraw_sources.pop(index))
         self._withdraw_sources[index] = GLib.timeout_add_seconds(
             3, self._on_withdraw_timeout, application, notification_id, index)

@@ -51,7 +51,7 @@ class Terminal(Vte.Terminal):
     # and the line and column to go to, the column being 1 if unknown.
     # The argument of "command-finished" is the name of the command that
     # ran in the foreground and has now returned to the prompt. "copied"
-    # is emitted when the selection lands in the clipboard.
+    # is emitted when text lands in the clipboard.
     __gsignals__ = {
         "file-clicked": (GObject.SignalFlags.RUN_LAST, None,
                          (GObject.TYPE_STRING,
@@ -216,6 +216,7 @@ class Terminal(Vte.Terminal):
         # Gdk.Clipboard.set_text is a C inline that Python can't call.
         self.get_clipboard().set_content(
             Gdk.ContentProvider.new_for_value(uri))
+        self.emit("copied")
 
     def _init_properties(self):
         self.set_hexpand(True)

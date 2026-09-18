@@ -139,6 +139,23 @@ class Terminal(Vte.Terminal):
             button=3, propagation_phase=Gtk.PropagationPhase.CAPTURE)
         right.connect("pressed", self._on_right_click_pressed)
         self.add_controller(right)
+        group = Gio.SimpleActionGroup()
+        open_action = Gio.SimpleAction.new("open", None)
+        open_action.connect(
+            "activate", lambda *args: self._open_uri(self._link_menu_uri))
+        copy_action = Gio.SimpleAction.new("copy", None)
+        copy_action.connect(
+            "activate", lambda *args: self._copy_uri(self._link_menu_uri))
+        group.add_action(open_action)
+        group.add_action(copy_action)
+        menu = Gio.Menu()
+        menu.append("_Open Link", "link.open")
+        menu.append("_Copy Link", "link.copy")
+        self._link_menu = Gtk.PopoverMenu.new_from_model(menu)
+        self._link_menu.set_has_arrow(False)
+        self._link_menu.insert_action_group("link", group)
+        self._link_menu.set_parent(self)
+        self._link_menu_uri = None
 
     def _on_click_pressed(self, click, n_press, x, y):
         # Only the first press of a double-click, which would otherwise
@@ -172,6 +189,7 @@ class Terminal(Vte.Terminal):
         # A menu of the link's own, and only where there is one: over a
         # file match or plain text, right-click stays VTE's, which has
         # nothing bound to it and lets it be.
+        if n_press != 1: return
         uri = self.check_hyperlink_at(x, y)
         if uri is None:
             text, tag = self.check_match_at(x, y)
@@ -182,32 +200,12 @@ class Terminal(Vte.Terminal):
         self._popup_link_menu(x, y, uri)
 
     def _popup_link_menu(self, x, y, uri):
-        # A popover of our own rather than VTE's context-menu property,
-        # which pops up on any right-click, menu or no menu to show.
-        group = Gio.SimpleActionGroup()
-        open_action = Gio.SimpleAction.new("open", None)
-        open_action.connect("activate", lambda *args: self._open_uri(uri))
-        copy_action = Gio.SimpleAction.new("copy", None)
-        copy_action.connect("activate", lambda *args: self._copy_uri(uri))
-        group.add_action(open_action)
-        group.add_action(copy_action)
-        menu = Gio.Menu()
-        menu.append("_Open Link", "link.open")
-        menu.append("_Copy Link", "link.copy")
-        popover = Gtk.PopoverMenu.new_from_model(menu)
-        popover.set_has_arrow(False)
-        popover.insert_action_group("link", group)
-        popover.set_parent(self)
-        # The menu points at the click, in the popover's parent's — our
-        # own — coordinates.
+        self._link_menu_uri = uri
         rect = Gdk.Rectangle()
         rect.x, rect.y = int(x), int(y)
         rect.width = rect.height = 1
-        popover.set_pointing_to(rect)
-        # One popover per click, taken off again once dismissed, the
-        # next click making the next one.
-        popover.connect("closed", lambda popover: popover.unparent())
-        popover.popup()
+        self._link_menu.set_pointing_to(rect)
+        self._link_menu.popup()
 
     def _open_uri(self, uri):
         Gtk.UriLauncher(uri=uri).launch(self.get_root(), None, None)
@@ -217,6 +215,14 @@ class Terminal(Vte.Terminal):
         self.get_clipboard().set_content(
             Gdk.ContentProvider.new_for_value(uri))
         self.emit("copied")
+
+    def do_dispose(self):
+        # A popover is parented, not a child, so it has to be
+        # unparented by hand, lest GTK complain on finalization.
+        if self._link_menu is not None:
+            self._link_menu.unparent()
+            self._link_menu = None
+        Vte.Terminal.do_dispose(self)
 
     def _init_properties(self):
         self.set_hexpand(True)

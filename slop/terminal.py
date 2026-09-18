@@ -233,6 +233,10 @@ class Terminal(Vte.Terminal):
         # to substitute its generic default, which is proportional.
         self.set_font(Pango.FontDescription.from_string(
             "Berkeley Standard Mono, SF Mono, monospace Medium 10"))
+        # Double-clicking selects a word, VTE's idea of one being
+        # alphanumeric characters only, which cuts a file path into its
+        # components; widen it by what paths and URLs are made of.
+        self.set_word_char_exceptions("-./:@_~")
 
     def _init_poll(self):
         # Watch the foreground command come and go, so that a test run,

@@ -98,6 +98,10 @@ class Terminal(Vte.Terminal):
         self.set_color_cursor(parse_color("#444444"))
 
     def _init_links(self):
+        # TUIs such as pi wrap URLs with real line breaks, leaving regex
+        # matching only the first line. OSC 8 carries the full target
+        # independently of the text on screen.
+        self.set_allow_hyperlink(True)
         # VTE finds the matches and shows a hand over them, opening them
         # on click is ours. Ptyxis wants Ctrl held, we don't. The click
         # gesture needs the capture phase to beat VTE, which would take
@@ -133,7 +137,11 @@ class Terminal(Vte.Terminal):
         # Only the first press of a double-click, which would otherwise
         # open the link twice.
         if n_press != 1: return
-        text, tag = self.check_match_at(x, y)
+        # Prefer the explicit target over the visible text, which may
+        # be a label or only the first line of a wrapped URL.
+        text, tag = self.check_hyperlink_at(x, y), self._url_tag
+        if text is None:
+            text, tag = self.check_match_at(x, y)
         if text is None: return
         if tag == self._url_tag:
             Gtk.UriLauncher(uri=text).launch(self.get_root(), None, None)

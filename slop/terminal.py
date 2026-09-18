@@ -50,7 +50,8 @@ class Terminal(Vte.Terminal):
     # The arguments of "file-clicked" are the absolute path of the file
     # and the line and column to go to, the column being 1 if unknown.
     # The argument of "command-finished" is the name of the command that
-    # ran in the foreground and has now returned to the prompt.
+    # ran in the foreground and has now returned to the prompt. "copied"
+    # is emitted when the selection lands in the clipboard.
     __gsignals__ = {
         "file-clicked": (GObject.SignalFlags.RUN_LAST, None,
                          (GObject.TYPE_STRING,
@@ -58,6 +59,7 @@ class Terminal(Vte.Terminal):
                           GObject.TYPE_INT)),
         "command-finished": (GObject.SignalFlags.RUN_LAST, None,
                              (GObject.TYPE_STRING,)),
+        "copied": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, directory, setup=None):
@@ -348,7 +350,9 @@ class Terminal(Vte.Terminal):
         self.add_controller(shortcuts)
 
     def _on_copy(self, terminal, args):
-        self.copy_clipboard_format(Vte.Format.TEXT)
+        if self.get_has_selection():
+            self.copy_clipboard_format(Vte.Format.TEXT)
+            self.emit("copied")
         return True
 
     def _on_paste(self, terminal, args):

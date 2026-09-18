@@ -139,6 +139,8 @@ class TaskPage(Gtk.Overlay):
             terminal.connect("bell", self._on_terminal_bell, page, i)
             terminal.connect("command-finished",
                              self._on_terminal_command_finished, page, i)
+            terminal.connect("copied",
+                             lambda *args: self._toast.flash("Copied to the clipboard"))
         self._right_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self._right_paned.set_start_child(self.stack)
         self._right_paned.set_resize_start_child(True)

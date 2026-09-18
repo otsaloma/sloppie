@@ -294,7 +294,7 @@ class CommentDialog(Gtk.Window):
         # be deleted, so don't ask about that one.
         if self._sent or util.confirm(self, "Delete comment?",
                                       "The comment will be permanently lost.",
-                                      "Delete"):
+                                      "Delete", destructive=True):
             self.emit("deleted")
             self.close()
 

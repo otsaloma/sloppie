@@ -149,7 +149,7 @@ class Window(Gtk.ApplicationWindow):
         if util.confirm(self, f"Move {path.name} to the trash?",
                         "The subtask and the work on its branch can only "
                         "be had back from the trash.",
-                        "Trash"):
+                        "Trash", destructive=True):
             self.trash_task(path)
 
     def trash_task(self, path):
@@ -212,7 +212,7 @@ class Window(Gtk.ApplicationWindow):
                 self,
                 f"Close {page.repository.root.name}?",
                 "Whatever is running in its terminals will be stopped.",
-                "Close"):
+                "Close", destructive=True):
             self.close_task(page.repository.root)
 
     def _on_close_request(self, window):
@@ -226,7 +226,7 @@ class Window(Gtk.ApplicationWindow):
             self, "Quit Sloppie?",
             f"{count} task is open and will be closed." if count == 1 else
             f"{count} tasks are open and will be closed.",
-            "Quit")
+            "Quit", destructive=True)
 
     def _on_task_changed(self, task):
         # The header bar only ever shows the task on screen, but the

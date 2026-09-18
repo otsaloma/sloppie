@@ -35,7 +35,7 @@ except (ImportError, ValueError):
 # The error dialog currently shown, if any.
 error_dialog = None
 
-def confirm(parent, message, detail, label):
+def confirm(parent, message, detail, label, destructive=False):
     """Return ``True`` if the user chooses `label`."""
     # Either AlertDialog only has an asynchronous API, so run a nested
     # main loop to be able to return the response to the caller. Both
@@ -54,7 +54,8 @@ def confirm(parent, message, detail, label):
         dialog = Adw.AlertDialog(heading=message, body=detail)
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("confirm", label)
-        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
+        if destructive:
+            dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.set_close_response("cancel")
         dialog.set_default_response("cancel")
         dialog.choose(parent, None, on_done)

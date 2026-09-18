@@ -352,7 +352,25 @@ class Terminal(Vte.Terminal):
         return True
 
     def _on_paste(self, terminal, args):
-        self.paste_clipboard()
+        # A multiline paste is potentially erroneous and dangerous.
+        def on_done(clipboard, result, *args):
+            try:
+                text = clipboard.read_text_finish(result)
+            except GLib.Error:
+                text = None
+            if text is None:
+                # Pass on to VTE as-is.
+                return self.paste_clipboard()
+            if "\n" in text:
+                message = ("The clipboard text has line breaks in it. "
+                           "Pasting sends it as if typed, and the shell "
+                           "may run each line as a command.")
+                if not util.confirm(self.get_root(), "Paste multiple lines?",
+                                    message, "Paste"):
+                    return
+            self.paste_text(text)
+
+        self.get_clipboard().read_text_async(None, on_done, None)
         return True
 
     def _on_map(self, terminal):

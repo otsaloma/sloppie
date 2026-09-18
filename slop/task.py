@@ -247,7 +247,7 @@ class TaskPage(Gtk.Overlay):
         change = self._file_sidebar.get_selected_change()
         if util.confirm(self.get_root(), f"Revert changes in {change.name}?",
                         "The changes will be permanently lost.",
-                        "Revert"):
+                        "Revert", destructive=True):
             if self._apply(self.repository.revert, change,
                            f"Failed to revert {change.name}"):
                 self._toast.flash(f"Reverted file {change.name}")
@@ -256,7 +256,7 @@ class TaskPage(Gtk.Overlay):
         change = self._file_sidebar.get_selected_change()
         if util.confirm(self.get_root(), f"Move {change.name} to the trash?",
                         "The file can be restored from the trash.",
-                        "Trash"):
+                        "Trash", destructive=True):
             if self._apply(self.repository.trash, change,
                            f"Failed to trash {change.name}"):
                 self._toast.flash(f"Trashed file {change.name}")

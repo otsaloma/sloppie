@@ -22,6 +22,7 @@ import signal
 import time
 
 from gi.repository import Gdk
+from gi.repository import Gio
 from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
@@ -132,6 +133,10 @@ class Terminal(Vte.Terminal):
             button=1, propagation_phase=Gtk.PropagationPhase.CAPTURE)
         click.connect("pressed", self._on_click_pressed)
         self.add_controller(click)
+        right = Gtk.GestureClick(
+            button=3, propagation_phase=Gtk.PropagationPhase.CAPTURE)
+        right.connect("pressed", self._on_right_click_pressed)
+        self.add_controller(right)
 
     def _on_click_pressed(self, click, n_press, x, y):
         # Only the first press of a double-click, which would otherwise
@@ -144,7 +149,7 @@ class Terminal(Vte.Terminal):
             text, tag = self.check_match_at(x, y)
         if text is None: return
         if tag == self._url_tag:
-            Gtk.UriLauncher(uri=text).launch(self.get_root(), None, None)
+            self._open_uri(text)
         elif tag == self._file_tag:
             path, line, column = (text.split(":") + ["1"])[:3]
             path = Path(path).expanduser()
@@ -160,6 +165,55 @@ class Terminal(Vte.Terminal):
         # Claim the click so that VTE doesn't get it too and start a
         # selection anchored in the middle of the match.
         click.set_state(Gtk.EventSequenceState.CLAIMED)
+
+    def _on_right_click_pressed(self, click, n_press, x, y):
+        # A menu of the link's own, and only where there is one: over a
+        # file match or plain text, right-click stays VTE's, which has
+        # nothing bound to it and lets it be.
+        uri = self.check_hyperlink_at(x, y)
+        if uri is None:
+            text, tag = self.check_match_at(x, y)
+            if text is not None and tag == self._url_tag:
+                uri = text
+        if uri is None: return
+        click.set_state(Gtk.EventSequenceState.CLAIMED)
+        self._popup_link_menu(x, y, uri)
+
+    def _popup_link_menu(self, x, y, uri):
+        # A popover of our own rather than VTE's context-menu property,
+        # which pops up on any right-click, menu or no menu to show.
+        group = Gio.SimpleActionGroup()
+        open_action = Gio.SimpleAction.new("open", None)
+        open_action.connect("activate", lambda *args: self._open_uri(uri))
+        copy_action = Gio.SimpleAction.new("copy", None)
+        copy_action.connect("activate", lambda *args: self._copy_uri(uri))
+        group.add_action(open_action)
+        group.add_action(copy_action)
+        menu = Gio.Menu()
+        menu.append("_Open Link", "link.open")
+        menu.append("_Copy Link", "link.copy")
+        popover = Gtk.PopoverMenu.new_from_model(menu)
+        popover.set_has_arrow(False)
+        popover.insert_action_group("link", group)
+        popover.set_parent(self)
+        # The menu points at the click, in the popover's parent's — our
+        # own — coordinates.
+        rect = Gdk.Rectangle()
+        rect.x, rect.y = int(x), int(y)
+        rect.width = rect.height = 1
+        popover.set_pointing_to(rect)
+        # One popover per click, taken off again once dismissed, the
+        # next click making the next one.
+        popover.connect("closed", lambda popover: popover.unparent())
+        popover.popup()
+
+    def _open_uri(self, uri):
+        Gtk.UriLauncher(uri=uri).launch(self.get_root(), None, None)
+
+    def _copy_uri(self, uri):
+        # Gdk.Clipboard.set_text is a C inline that Python can't call.
+        self.get_clipboard().set_content(
+            Gdk.ContentProvider.new_for_value(uri))
 
     def _init_properties(self):
         self.set_hexpand(True)

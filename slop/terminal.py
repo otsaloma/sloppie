@@ -165,13 +165,18 @@ class Terminal(Vte.Terminal):
         self._link_menu.set_parent(self)
         self._link_menu_uri = None
 
+    def _check_hyperlink_at(self, x, y):
+        """Return the hyperlink URI at (`x`, `y`) if http or https, or ``None``."""
+        uri = self.check_hyperlink_at(x, y)
+        return uri if uri and uri.startswith(("http://", "https://")) else None
+
     def _on_click_pressed(self, click, n_press, x, y):
         # Only the first press of a double-click, which would otherwise
         # open the link twice.
         if n_press != 1: return
         # Prefer the explicit target over the visible text, which may
         # be a label or only the first line of a wrapped URL.
-        text, tag = self.check_hyperlink_at(x, y), self._url_tag
+        text, tag = self._check_hyperlink_at(x, y), self._url_tag
         if text is None:
             text, tag = self.check_match_at(x, y)
         if text is None: return
@@ -198,7 +203,7 @@ class Terminal(Vte.Terminal):
         # file match or plain text, right-click stays VTE's, which has
         # nothing bound to it and lets it be.
         if n_press != 1: return
-        uri = self.check_hyperlink_at(x, y)
+        uri = self._check_hyperlink_at(x, y)
         if uri is None:
             text, tag = self.check_match_at(x, y)
             if text is not None and tag == self._url_tag:
@@ -216,6 +221,7 @@ class Terminal(Vte.Terminal):
         self._link_menu.popup()
 
     def _open_uri(self, uri):
+        if not uri.startswith(("http://", "https://")): return
         Gtk.UriLauncher(uri=uri).launch(self.get_root(), None, None)
 
     def _copy_uri(self, uri):

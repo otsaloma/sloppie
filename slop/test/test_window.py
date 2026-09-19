@@ -109,3 +109,12 @@ class TestWindow(slop.test.TestCase):
         self.window._page.resume_agent()
         assert not fed
         assert self.window._page._toast._label.get_text() == "Invalid resume command"
+
+    def test_only_http_and_https_hyperlinks_are_allowed(self):
+        terminal = self.window._page._terminals[0]
+        terminal.check_hyperlink_at = lambda x, y: "file:///etc/hostname"
+        assert terminal._check_hyperlink_at(0, 0) is None
+        terminal.check_hyperlink_at = lambda x, y: "https://example.com"
+        assert terminal._check_hyperlink_at(0, 0) == "https://example.com"
+        terminal.check_hyperlink_at = lambda x, y: "http://example.com"
+        assert terminal._check_hyperlink_at(0, 0) == "http://example.com"

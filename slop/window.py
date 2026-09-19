@@ -491,7 +491,7 @@ class Window(Gtk.ApplicationWindow):
         self.lookup_action("revert").set_enabled(section == "unstaged")
         self.lookup_action("trash").set_enabled(section == "untracked")
         self._sync_attention()
-        self.set_title(f"Sloppie — {page.repository.root.name}"
+        self.set_title(f"{page.repository.root.name} — Sloppie"
                        if page else "Sloppie")
         if page is None: return
         self._title_label.set_label(page.repository.root.name)

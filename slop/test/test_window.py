@@ -30,11 +30,11 @@ class TestWindow(slop.test.TestCase):
         self.window._page.refresh()
 
     def test_title_reflects_shown_task_or_dashboard(self):
-        assert self.window.get_title() == f"Sloppie — {self.root.name}"
+        assert self.window.get_title() == f"{self.root.name} — Sloppie"
         self.window._show_dashboard()
         assert self.window.get_title() == "Sloppie"
         self.window._show_task(self.window._tasks[0])
-        assert self.window.get_title() == f"Sloppie — {self.root.name}"
+        assert self.window.get_title() == f"{self.root.name} — Sloppie"
 
     def test_closing_the_task_shown_returns_to_the_dashboard(self):
         # Nothing runs in the terminals of a window never shown, so this

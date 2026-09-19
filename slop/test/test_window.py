@@ -16,6 +16,10 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import slop.test
+import time
+
+from slop import recent
+from slop import util
 
 class TestWindow(slop.test.TestCase):
 
@@ -93,3 +97,15 @@ class TestWindow(slop.test.TestCase):
         for gutter in (self.window._page._diff_view._old_gutter,
                        self.window._page._diff_view._new_gutter):
             assert len(gutter.lines) == buffer.get_line_count()
+
+    def test_bogus_resume_command_is_not_fed_to_terminal(self):
+        terminal = self.window._page._terminals[0]
+        fed = []
+        terminal.feed_child = fed.append
+        items = util.read_json(recent.PATH, [])
+        items.append({"path": str(self.root), "time": round(time.time()),
+                      "resume": "echo bogus"})
+        util.write_json(items, recent.PATH)
+        self.window._page.resume_agent()
+        assert not fed
+        assert self.window._page._toast._label.get_text() == "Invalid resume command"

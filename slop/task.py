@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import re
 import slop
 import subprocess
 import sys
@@ -29,6 +30,7 @@ from slop.git import DiffLine
 from slop.git import parse_diff
 from slop.git import SECTIONS
 from slop.terminal import AGENTS
+from slop.terminal import RESUME_COMMANDS
 
 def format_elapsed(seconds):
     """Return `seconds` as ``[HH:]MM:SS``, ``None`` staying ``None``."""
@@ -344,6 +346,9 @@ class TaskPage(Gtk.Overlay):
         command = recent.get_resume_command(self.repository.root)
         if command is None:
             return self._toast.flash("No agent session to resume")
+        if not isinstance(command, str) or not any(
+                re.fullmatch(x, command) for x in RESUME_COMMANDS.values()):
+            return self._toast.flash("Invalid resume command")
         # The first terminal, that being the agent's, the same as where
         # a comment is sent. Never on top of whatever runs there.
         terminal = self._terminals[0]

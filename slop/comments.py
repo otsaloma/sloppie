@@ -16,6 +16,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import hashlib
+import re
 import slop
 import textwrap
 import time
@@ -87,7 +88,9 @@ class Comment:
             # Indentation would make a code block too, but the leading
             # whitespace gets eaten on the way into an agent's prompt.
             parts.append("```\n{}\n```".format(dedent_hunk(self.hunk)))
-        parts.append(self.text)
+        # Agents take a line starting with '!' for a shell command to run,
+        # so prefix with an ellipsis to keep the text as a comment.
+        parts.append(re.sub(r"^!", "...!", self.text, flags=re.MULTILINE))
         return "\n\n".join(parts)
 
 class CommentDialog(Gtk.Window):

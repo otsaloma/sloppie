@@ -19,6 +19,8 @@ import json
 import slop
 import slop.test
 
+from slop.comments import Comment
+
 class TestCommentSidebar(slop.test.TestCase):
 
     def setup_method(self, method):
@@ -92,6 +94,10 @@ class TestCommentSidebar(slop.test.TestCase):
         comment = self.mine.add_comment("mine")
         self.mine._remove([comment.uid])
         assert not (self.repository.git_common_dir / "sloppie" / "comments.json").exists()
+
+    def test_comment_starting_with_exclamation_mark_is_prefixed(self):
+        comment = Comment(text="!ls\nhello\n!world")
+        assert comment.serialize() == "...!ls\nhello\n...!world"
 
     def _read(self):
         """Return the comments as they are on file."""

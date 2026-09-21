@@ -479,6 +479,7 @@ class Dashboard(Gtk.Box):
                                  spacing=24)
 
         self._box = None
+        self._open_button = None
         # Subtasks being copied, by the directory they are copied to,
         # which is where they will be once there is anything there.
         self._pending = {}
@@ -510,11 +511,11 @@ class Dashboard(Gtk.Box):
         # Only found once the icon has been installed, but that's fine,
         # a missing icon just leaves an empty space above the button.
         self.append(Gtk.Image(icon_name="io.otsaloma.sloppie", pixel_size=128))
-        button = Gtk.Button(label="_Open Repository", use_underline=True)
-        button.add_css_class("suggested-action")
-        button.set_halign(Gtk.Align.CENTER)
-        button.connect("clicked", self._on_open_clicked)
-        self.append(button)
+        self._open_button = Gtk.Button(label="_Open Repository", use_underline=True)
+        self._open_button.add_css_class("suggested-action")
+        self._open_button.set_halign(Gtk.Align.CENTER)
+        self._open_button.connect("clicked", self._on_open_clicked)
+        self.append(self._open_button)
         # A card per repository, each its own frame, rather than one
         # list of them all, the cards being separate things to act on.
         self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -682,4 +683,4 @@ class Dashboard(Gtk.Box):
         # The first row, or the open button with no cards at all.
         if (group := self._box.get_first_child()) is not None:
             return group.get_rows()[0].grab_focus()
-        self.get_first_child().get_next_sibling().grab_focus()
+        self._open_button.grab_focus()

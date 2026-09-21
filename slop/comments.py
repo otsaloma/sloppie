@@ -75,6 +75,23 @@ class Comment:
         # a comment being no less permanent for having been sent.
         self.sent = sent
 
+    def to_dict(self):
+        """Return the comment serialized as a dictionary."""
+        return {attr: getattr(self, attr) for attr in self.__slots__}
+
+    @classmethod
+    def from_dict(cls, data):
+        """Return a comment reconstructed from dictionary `data`."""
+        # Comments from before uids were introduced have none, so make
+        # one up from the contents, stable across rereads.
+        return cls(uid=data.get("uid") or derive_uid(data),
+                   branch=data.get("branch"),
+                   created_at=data.get("created_at", 0),
+                   path=data.get("path"),
+                   hunk=data.get("hunk"),
+                   text=data["text"],
+                   sent=data.get("sent", False))
+
     def serialize(self):
         """Return the comment as text to be handed to an agent."""
         parts = []
@@ -351,15 +368,8 @@ class CommentSidebar(Gtk.Box):
 
     def _read(self):
         """Return the comments of all branches, read from file."""
-        items = util.read_json(self._get_file(), [])
-        return [Comment(uid=x.get("uid") or derive_uid(x),
-                        branch=x.get("branch"),
-                        created_at=x.get("created_at", 0),
-                        path=x.get("path"),
-                        hunk=x.get("hunk"),
-                        text=x["text"],
-                        sent=x.get("sent", False))
-                for x in items]
+        return [Comment.from_dict(x)
+                for x in util.read_json(self._get_file(), [])]
 
     def _modify(self, uids, **fields):
         """Set `fields` on the comments in `uids`, keeping what others wrote."""
@@ -385,11 +395,7 @@ class CommentSidebar(Gtk.Box):
         self._comments = comments
         path = self._get_file()
         if comments:
-            items = [{"uid": x.uid, "branch": x.branch,
-                      "created_at": x.created_at, "path": x.path,
-                      "hunk": x.hunk, "text": x.text, "sent": x.sent}
-                     for x in comments]
-            util.write_json(items, path)
+            util.write_json([x.to_dict() for x in comments], path)
         else:
             # Leave no file behind once the last comment is gone.
             with suppress(Exception):

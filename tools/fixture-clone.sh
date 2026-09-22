@@ -1,9 +1,8 @@
 #!/bin/sh
 set -eu
 
-# Clone this repository to DIRECTORY, which must not exist, and give
-# the clone changes of every kind we render, in amounts and shapes that
-# match real use. Used as a repository to look at sloppie against.
+# Clone this repository to DIRECTORY, which must not exist, with changes
+# of every kind we render, to look at sloppie against.
 
 test $# -eq 1 || { echo "Usage: $(basename "$0") DIRECTORY" >&2; exit 1; }
 ROOT=$(cd "$(dirname "$0")/.." && pwd)

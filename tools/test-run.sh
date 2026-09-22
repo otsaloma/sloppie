@@ -1,23 +1,15 @@
 #!/bin/sh
 set -eu
 
-# Clone this repository under the cache directory, give the clone
-# changes of every kind we render and launch sloppie against it. The
-# clone is thrown away when the run ends, so it can be freely messed
-# with. Not under /tmp: repositories there are deliberately not
-# recorded as recently opened, so subtasks forked in the run would show
-# up ungrouped, and GLib keeps the trash under the home directory and
-# refuses to trash across a filesystem boundary, tmpfs to ext4.
-# Subtasks are forked as siblings of the clone, hence a directory of
-# its own around it, that being what is thrown away.
+# Launch sloppie against a clone with changes of every kind we render,
+# thrown away when the run ends. Not under /tmp, which is not recorded
+# as recently opened and from which GLib refuses to trash. A directory
+# around the clone, as subtasks are forked as its siblings.
 #
-# Nothing here sets XDG_DATA_HOME to keep the clone out of the real
-# list of recently opened repositories: the terminals of the run
-# inherit the environment of sloppie, and claude, started in one of
-# them, would install itself under a directory thrown away on the next
-# run and leave ~/.local/bin/claude pointing there. The clone is left
-# among the real ones instead, where it is skipped after the run throws
-# it away, its '.git' being gone.
+# XDG_DATA_HOME is not set to keep the clone out of the real list of
+# recent repositories: the terminals inherit it, and claude started in
+# one would install itself under a directory thrown away on the next
+# run. The clone is skipped in the list once gone.
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$HOME/.cache/sloppie/test-run

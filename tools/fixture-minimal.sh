@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-# Initialize a minimal git repository at DIRECTORY, with a change of
-# every kind, but small enough that the expected output of each can be
-# written out by hand. Used as the scratch repository of the test suite.
+# Initialize a git repository at DIRECTORY with a change of every kind,
+# small enough to write the expected output by hand. Used by the test
+# suite.
 
 test $# -eq 1 || { echo "Usage: $(basename "$0") DIRECTORY" >&2; exit 1; }
 mkdir -p "$1"
@@ -11,8 +11,7 @@ cd "$1"
 
 git init --quiet
 
-# Give the repository an identity of its own, so that commits made
-# here and by the code under test work without a global git config.
+# Needed for commits, the tests ignoring the global git config.
 git config user.email test@test
 git config user.name Test
 printf 'a\nb\nc\n' > modified.txt

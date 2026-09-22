@@ -55,5 +55,5 @@ from slop.app import Application
 
 def main(args):
     global app
-    app = Application(args)
-    raise SystemExit(app.run())
+    app = Application()
+    raise SystemExit(app.run(["sloppie", *args]))

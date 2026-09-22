@@ -25,26 +25,41 @@ from gi.repository import Gtk
 
 class Application(Gtk.Application):
 
-    def __init__(self, args):
+    def __init__(self):
         GObject.GObject.__init__(self)
+        self._window = None
         self.set_application_id("io.otsaloma.sloppie")
-        self.set_flags(Gio.ApplicationFlags.NON_UNIQUE)
-        self.connect("activate", self._on_activate, args)
+        self.set_flags(Gio.ApplicationFlags.HANDLES_OPEN)
+        self.connect("activate", self._on_activate)
+        self.connect("open", self._on_open)
 
-    def _on_activate(self, app, args):
-        args = self._parse_arguments(args)
-        repository = None
+    def do_local_command_line(self, arguments):
+        try:
+            args = self._parse_arguments(arguments[1:])
+        except SystemExit as error:
+            # argparse exits for help, version and errors;
+            # let GApplication exit.
+            return True, arguments, error.code
+        forwarded = [arguments[0]]
         if args.path is not None:
             try:
                 repository = slop.Repository(args.path)
             except Exception as error:
-                # Nothing to show without a repository, so fail like git does.
                 print(f"sloppie: {error}", file=sys.stderr)
-                raise SystemExit(1)
-        # Without a path the window asks for a repository itself.
-        window = slop.Window(repository)
-        self.add_window(window)
-        window.present()
+                return True, arguments, 1
+            forwarded.append(str(repository.root))
+        return Gtk.Application.do_local_command_line(self, forwarded)
+
+    def _on_activate(self, app):
+        if self._window is None:
+            self._window = slop.Window()
+            self.add_window(self._window)
+        self._window.present()
+
+    def _on_open(self, app, files, n_files, hint):
+        self.activate()
+        for file in files:
+            self._window.open_task(file.get_path())
 
     def _parse_arguments(self, args):
         parser = ArgumentParser(usage="sloppie [OPTION...] [PATH]")

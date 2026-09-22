@@ -97,10 +97,12 @@ fatal error (with traceback) when tracking down its source.
 
 Screenshot tools that grab the screen, such as `grim` or `import`, are
 not available, but the window can render itself to PNG. Run a standalone
-script that creates `slop.Application([path])` and connects to
-"activate" — after the application's own handler, so that
-`app.get_windows()[0]` is there — then in a `GLib.timeout_add` callback
-(~1500 ms) render the window to PNG and quit the application:
+script that creates `slop.Application()` and connects to "open" — after
+the application's own handler, so that `app.get_windows()[0]` is there —
+then in a `GLib.timeout_add` callback (~1500 ms) render the window to
+PNG and quit the application. Run it with `app.run(["sloppie",
+str(path)])` under `dbus-run-session` so it gets its own instance rather
+than forwarding to a running Sloppie:
 
 ```python
 paintable = Gtk.WidgetPaintable(widget=window)

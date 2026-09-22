@@ -275,8 +275,7 @@ class TaskPage(Gtk.Overlay):
         """Paste `text` into the agent running in the first terminal."""
         # A shell prompt would run whatever the text happens to contain.
         terminal = self._terminals[0]
-        commands = terminal.get_foreground_commands()
-        if not any(x in AGENTS for x in commands):
+        if not terminal.is_agent_running():
             self._toast.flash("No agent running in the terminal")
             return False
         # The user presses Enter, deliberately not us.

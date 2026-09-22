@@ -402,6 +402,11 @@ class Terminal(Vte.Terminal):
         # Not from the poll, which can be a few seconds behind.
         return self._get_foreground_group() is not None
 
+    def is_agent_running(self):
+        """Return ``True`` if an agent runs here, checked now, not polled."""
+        if (group := self._get_foreground_group()) is None: return False
+        return self._get_command_name(group) in AGENTS
+
     def get_command(self):
         """Return the name of the command running, ``None`` if at the prompt."""
         # As of the last poll.
@@ -411,29 +416,6 @@ class Terminal(Vte.Terminal):
         """Return seconds the command running has been, ``None`` if at the prompt."""
         if self._command_started is None: return None
         return time.monotonic() - self._command_started
-
-    def get_foreground_commands(self):
-        """Return the names of the commands running, empty if at the prompt."""
-        if (group := self._get_foreground_group()) is None: return []
-        # The whole group, not merely its leader, a command often being
-        # a wrapper with the real thing as its child. codex, to name
-        # one, is a Node script that spawns a binary of its own, and
-        # its own name reads 'MainThread', that being Node's main thread.
-        commands = []
-        for path in Path("/proc").glob("[0-9]*"):
-            try:
-                # The fields of stat are separated by spaces, but the
-                # second one is the command in parentheses and can
-                # contain anything, spaces and parentheses included, so
-                # only look past the last parenthesis, where the group
-                # is the third field.
-                stat = (path / "stat").read_text("utf-8")
-                if int(stat[stat.rindex(")") + 2:].split()[2]) != group: continue
-                commands.append((path / "comm").read_text("utf-8").strip())
-            except Exception:
-                # A process can be gone by the time we look at it.
-                continue
-        return commands
 
     def _on_child_exited(self, terminal, status):
         # Respawn, as Ctrl+D is easy to press by accident. Not once the

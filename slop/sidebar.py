@@ -68,15 +68,13 @@ class FileSidebar(Gtk.Box):
         self._scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self._scroller.set_vexpand(True)
         self._scroller.set_child(self._list_view)
-        # The list starts out empty, hence the placeholder instead.
         self._scroller.set_visible(False)
         self.append(self._scroller)
         self._placeholder = Gtk.Label(label="No changes")
         self._placeholder.add_css_class("dim-label")
         self._placeholder.set_vexpand(True)
         self.append(self._placeholder)
-        # The actions are those of the window, found by way of the popover
-        # being parented to a widget in the window's widget hierarchy.
+        # The window's actions, found through the popover's parent.
         model = Gio.Menu()
         model.append("Stage", "win.stage")
         model.append("Unstage", "win.unstage")
@@ -102,8 +100,8 @@ class FileSidebar(Gtk.Box):
 
     def _on_header_bind(self, factory, header):
         change = header.get_item()
-        # The mnemonics only show the underline when Alt is held, the
-        # focus shortcuts of the window do the actual moving of focus.
+        # Mnemonics only for the underline, the window's focus shortcuts
+        # do the moving of focus.
         title = {
             "staged": "_Staged",
             "unstaged": "_Unstaged",
@@ -119,8 +117,8 @@ class FileSidebar(Gtk.Box):
         status.set_width_chars(1)
         status.add_css_class("monospace")
         status.add_css_class("slop-file-status")
-        # The directory is part of the name label, not one of its own, so
-        # that it's the part that goes first when the row runs out of room.
+        # The directory is part of the name label, so that it's the part
+        # that goes first when the row runs out of room.
         name = Gtk.Label()
         name.set_xalign(0)
         name.set_hexpand(True)
@@ -134,7 +132,6 @@ class FileSidebar(Gtk.Box):
         removed.add_css_class("monospace")
         removed.add_css_class("slop-file-removed")
         for child in (status, name, added, removed):
-            # Line up the baselines of the smaller labels with the name.
             child.set_valign(Gtk.Align.BASELINE_CENTER)
             box.append(child)
         gesture = Gtk.GestureClick(button=Gdk.BUTTON_PRIMARY)
@@ -159,26 +156,20 @@ class FileSidebar(Gtk.Box):
                 GLib.markup_escape_text(change.directory))
         name.set_markup(markup)
         box.set_tooltip_text(change.path)
-        # Binary files have no line counts to show. Zeros are left out too,
-        # they'd only be noise on a row that has nothing added or removed.
         added.set_text(f"+{change.added}" if change.added else "")
         removed.set_text("bin" if change.removed is None else
                          f"−{change.removed}" if change.removed else "")
         for label in (added, removed):
-            # Hide rather than blank, so that the box spacing of an empty
-            # label doesn't look like trailing space on the row.
+            # Hide rather than blank, as a blank still takes spacing.
             label.set_visible(bool(label.get_text()))
 
     def _on_item_left_click(self, gesture, n_press, x, y, item):
-        # Clicking the file selected already changes no selection and so
-        # emits no notification, but should still bring up its diff. Rows
-        # are recycled, so the item's position is only known now.
+        # Clicking the file selected already changes no selection, but
+        # should still bring up its diff.
         if item.get_position() == self._selection.get_selected():
             self.emit("change-selected", self._selection.get_selected_item(), True)
 
     def _on_item_right_click(self, gesture, n_press, x, y, item):
-        # Act on the file clicked, not the one selected before. Rows are
-        # recycled, so the item's position is only known now.
         self._selection.set_selected(item.get_position())
         found, point = item.get_child().compute_point(
             self, Graphene.Point().init(x, y))
@@ -212,10 +203,8 @@ class FileSidebar(Gtk.Box):
     def set_changes(self, changes):
         """Show `changes`, keeping the selected file selected if still there."""
         selected = self.get_selected_change()
-        # Splicing drops the selection before it can be restored below.
-        # Block the handler for the duration, so that this shows to the
-        # outside as one selection change, not a deselection and then a
-        # reselection, which would reload the diff view twice.
+        # Splicing drops the selection before it is restored below, which
+        # would otherwise reload the diff view twice.
         with GObject.signal_handler_block(self._selection, self._selection_handler):
             for section in SECTIONS:
                 self._stores[section].splice(

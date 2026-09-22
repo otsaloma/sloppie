@@ -37,9 +37,6 @@ def format_elapsed(seconds):
     if seconds is None: return None
     hours, seconds = divmod(round(seconds), 3600)
     minutes, seconds = divmod(seconds, 60)
-    # The hours only once there are any, and whichever field comes
-    # first left unpadded, the ones that follow it padded as a clock
-    # has them.
     if hours: return f"{hours:d}:{minutes:02d}:{seconds:02d}"
     return f"{minutes:d}:{seconds:02d}"
 
@@ -47,28 +44,22 @@ class TaskLayout(Gtk.OverlayLayout):
 
     """Layout that keeps the two sidebars of a task at a sixth each."""
 
-    # A layout manager rather than TaskPage.do_size_allocate: a widget
-    # that has a layout manager, as Gtk.Overlay does, never has its own
-    # size_allocate called, GTK handing the whole job to the manager.
+    # Not TaskPage.do_size_allocate, which GTK never calls on a widget
+    # that has a layout manager, as Gtk.Overlay does.
 
     def do_allocate(self, task, width, height, baseline):
-        # Keep both sidebars at a sixth of the window width, the middle
-        # getting the rest, minus the two one pixel paned handles.
         sidebar = round(width / 6)
         task._paned.set_position(sidebar)
         Gtk.OverlayLayout.do_allocate(self, task, width, height, baseline)
-        # The right paned shifts its own position by the change in its
-        # width, so it can only be set once it has been allocated the
-        # width that follows from the left paned position set above.
+        # The right paned shifts its position by the change in its width,
+        # so set it only once allocated. Minus the two 1 px handles.
         task._right_paned.set_position(width - 2 * sidebar - 2)
 
 class TaskPage(Gtk.Overlay):
 
     """One task worked on: a repository, its diff, terminals and comments."""
 
-    # Emitted when anything the window shows on behalf of the task
-    # changes: the branch in the header bar, the file selection that
-    # decides which of the window's actions apply.
+    # Emitted when anything the window shows of the task changes.
     __gsignals__ = {
         "changed": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
@@ -78,23 +69,15 @@ class TaskPage(Gtk.Overlay):
         self.repository = repository
         self.branch = None
         self.config = slop.Config(repository)
-        # What the dashboard shows on this task's card, kept up to date
-        # by the poll below for as long as the task is open, whether or
-        # not it is the one on screen.
+        # What the dashboard shows on this task's card.
         self.command = None
         self.comments = 0
         self.elapsed = None
         self.lines_added = 0
         self.lines_removed = 0
-        # Either 'waiting', for an agent that has rung and wants the
-        # user, or 'working', for anything else that runs. The card
-        # makes a CSS class of the value, so the two go together.
+        # 'waiting' or 'working', also a CSS class of the card.
         self.status = "working"
-        # The state of the window's wrap toggle while this task is the
-        # one shown, starting out as it was left for this repository.
         self.wrap_lines = self.config.read_item("wrap-lines")
-        # The stack of views, which the window's switcher is pointed at
-        # for as long as this is the task shown.
         self.stack = None
         self._comment_sidebar = slop.CommentSidebar(repository)
         self._diff_view = slop.DiffView()
@@ -105,8 +88,6 @@ class TaskPage(Gtk.Overlay):
         self._right_paned = None
         self._shown_change = None
         self._stack_handler = None
-        # Only the first terminal gets the setup, that being the one the
-        # task lands on and thus the one the user is there to read.
         self._terminals = [slop.Terminal(repository.root, setup if i == 0 else None)
                            for i in range(3)]
         self._toast = slop.Toast()
@@ -116,9 +97,6 @@ class TaskPage(Gtk.Overlay):
         self._init_widgets()
         self._init_signal_handlers()
         self.refresh()
-        # Sloppie is started to begin a new task, and that work starts at
-        # the terminal, so land there rather than on the diff view, which
-        # is the first tab and would otherwise be the one shown.
         self.stack.set_visible_child_name("terminal-1")
 
     def _init_widgets(self):
@@ -126,11 +104,9 @@ class TaskPage(Gtk.Overlay):
         diff_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         diff_scroller.set_child(self._diff_view)
         self.stack = Gtk.Stack()
-        # The mnemonics only show the underline when Alt is held, the
-        # focus shortcuts of the window do the actual moving of focus.
+        # Mnemonics only for the underline, the window's focus shortcuts
+        # do the moving of focus.
         self.stack.add_titled(diff_scroller, "diff", "_Diff").set_use_underline(True)
-        # Only the first terminal is spelled out, the rest are numbered
-        # and narrowed by CSS: [ Diff | Terminal | 2 | 3 ].
         for i, terminal in enumerate(self._terminals, start=1):
             scroller = Gtk.ScrolledWindow()
             scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -166,24 +142,19 @@ class TaskPage(Gtk.Overlay):
         self._file_sidebar.connect("change-selected", self._on_change_selected)
         for terminal in self._terminals:
             terminal.connect("file-clicked", self._on_file_clicked)
-        # Clicking the stack switcher only switches the stack and leaves
-        # focus on the switcher button, so focus the view shown here.
+        # Clicking the stack switcher leaves focus on the switcher.
         self._stack_handler = self.stack.connect(
             "notify::visible-child", lambda *args: self.focus_shown_view())
-        # Looking at a tab is seeing to whatever rang there.
         self.stack.connect("notify::visible-child",
                            lambda *args: self.seen())
-        # Poll instead of watching the working tree, which would mean a
-        # watch on each of possibly very many directories. A poll costs
-        # one git command that skips ignored files, such as node_modules.
+        # Watching the working tree would need a watch per directory.
+        # A poll is one git command that skips ignored files.
         self._poll_source = GLib.timeout_add_seconds(3, self._on_poll_timeout)
 
     def close(self):
         """Stop polling and hang up the shells, the task being closed."""
-        # Explicitly rather than when the widget is disposed: the task is
-        # kept alive by the handlers it holds on its own children, which
-        # reference it back, so being taken out of the window leaves it
-        # polling and its shells running where they cannot be reached.
+        # Not on dispose, which never comes, the handlers on the task's
+        # children referencing it back.
         if self._poll_source is not None:
             GLib.source_remove(self._poll_source)
             self._poll_source = None
@@ -196,17 +167,11 @@ class TaskPage(Gtk.Overlay):
         return change.section if change is not None else None
 
     def _on_change_selected(self, sidebar, change, by_user):
-        # The sidebar and the diff view belong together, so picking a
-        # file should show its diff, even if the terminal was shown.
         # A reload reselecting a file should not steal the terminal.
         if by_user and change is not None:
             self._show_diff_view()
-        # Let the window enable only the actions that apply to the file
-        # selected.
         self.emit("changed")
-        # A refresh reselects the file selected, which lands here just
-        # like the user picking a file. Only the latter should send the
-        # diff view back to the top, the former should stay put.
+        # A reload reselecting the same file should keep the position.
         previous, self._shown_change = self._shown_change, change
         same = (change is not None and previous is not None and
                 change.section == previous.section and
@@ -219,9 +184,7 @@ class TaskPage(Gtk.Overlay):
             util.show_error(self.get_root(), f"Failed to diff {change.name}", error)
             return self._diff_view.set_diff([])
         if len(text) > 2 * 1024 * 1024:
-            # Rendering takes a second or so per megabyte of diff, and
-            # a diff this big is not going to be read line by line
-            # anyway, so say that instead of freezing to render it.
+            # Rendering takes a second or so per megabyte.
             return self._diff_view.set_diff(
                 [DiffLine("meta", None, None, "Large diffs are not rendered")])
         self._diff_view.set_diff(parse_diff(text), change.path, keep_position=same)
@@ -266,15 +229,11 @@ class TaskPage(Gtk.Overlay):
                 self._toast.flash(f"Trashed file {change.name}")
 
     def edit(self):
-        # Without a file selected, edit the repository root, which lands
-        # emacs in dired, from where any file can be opened.
         change = self._file_sidebar.get_selected_change()
         if change is None:
             return self._edit(str(self.repository.root))
         arguments = [str(self.repository.root / change.path)]
         if position := self._diff_view.get_position():
-            # Emacs takes the position to visit as '+LINE:COLUMN'
-            # preceding the file that it applies to.
             arguments.insert(0, "+{:d}:{:d}".format(*position))
         self._edit(*arguments)
 
@@ -283,8 +242,7 @@ class TaskPage(Gtk.Overlay):
 
     def _edit(self, *arguments):
         try:
-            # Give emacs a session of its own, so that it neither dies
-            # along with sloppie nor takes signals meant for sloppie.
+            # A session of its own, so as to not die along with sloppie.
             subprocess.Popen(["emacs", *arguments], start_new_session=True)
         except Exception as error:
             util.show_error(self.get_root(), "Failed to start emacs", error)
@@ -295,17 +253,12 @@ class TaskPage(Gtk.Overlay):
         dialog.present()
 
     def add_comment(self):
-        # A selection in the terminal on screen means a comment on that
-        # piece of the agent's output, which belongs to no file. The
-        # terminal being what the user is reading, it wins over whatever
-        # was left selected in the diff view.
+        # A selection in the terminal shown wins over one left in the
+        # diff view.
         view = self.get_shown_view()
         if isinstance(view, slop.Terminal):
             if (hunk := view.get_selection()) is not None:
                 return self._comment_sidebar.new_comment(hunk=hunk)
-        # A selection in the diff view means a comment on that piece of
-        # code, in the file whose diff is shown. Without one the comment
-        # is on the changes as a whole.
         hunk = self._diff_view.get_selection()
         change = self._file_sidebar.get_selected_change()
         if hunk is None or change is None:
@@ -320,50 +273,36 @@ class TaskPage(Gtk.Overlay):
 
     def send_to_agent(self, text):
         """Paste `text` into the agent running in the first terminal."""
-        # Pasting into a shell prompt would leave whatever the comment
-        # happens to contain there to be run, so hand the text over only
-        # to an agent that is actually running and waiting for a prompt.
+        # A shell prompt would run whatever the text happens to contain.
         terminal = self._terminals[0]
         commands = terminal.get_foreground_commands()
         if not any(x in AGENTS for x in commands):
             self._toast.flash("No agent running in the terminal")
             return False
-        # Show the terminal, the paste being there to be read and sent
-        # by the user, who presses Enter, which we deliberately don't.
+        # The user presses Enter, deliberately not us.
         self.focus("terminal-1")
-        # Paste rather than feed the text, which is to say as bracketed
-        # paste, where the agent takes it for text and not for keys
-        # pressed, and where VTE strips the control characters that a
-        # hunk could otherwise smuggle in.
+        # Bracketed paste, which the agent takes for text, not keys, and
+        # from which VTE strips control characters.
         terminal.paste_text(text)
         return True
 
     def resume_agent(self):
         """Run the command to resume the agent session last quit here."""
-        # Recorded by the terminal off what the agent printed on its way
-        # out, and kept with the repository rather than with the task,
-        # so that the session is still there to return to tomorrow.
         command = recent.get_resume_command(self.repository.root)
         if command is None:
             return self._toast.flash("No agent session to resume")
         if not isinstance(command, str) or not any(
                 re.fullmatch(x, command) for x in RESUME_COMMANDS.values()):
             return self._toast.flash("Invalid resume command")
-        # The first terminal, that being the agent's, the same as where
-        # a comment is sent. Never on top of whatever runs there.
         terminal = self._terminals[0]
         if terminal.is_running():
             return self._toast.flash("Something is running in the terminal")
         self.focus("terminal-1")
-        # Typed into the shell as the user would type it, Enter and all,
-        # this being a button pressed to have the agent back, not a
-        # command to look over first.
         terminal.feed_child(f"{command}\n".encode())
 
     def run(self):
         if command := self.config.read_item("run-command"):
             return self._run(command)
-        # Nothing to run yet, so ask what to run and then run that.
         dialog = slop.RunDialog(self.get_root(), self.config)
         dialog.connect("saved", lambda dialog, command: self._run(command))
         dialog.present()
@@ -373,17 +312,13 @@ class TaskPage(Gtk.Overlay):
 
     def _run(self, command):
         try:
-            # Run via the shell, so that the command can be anything
-            # that would work in a terminal, and give it a session of
-            # its own, so that it neither dies along with sloppie nor
-            # takes signals meant for sloppie.
+            # A session of its own, as in _edit.
             subprocess.Popen(["sh", "-c", command],
                              cwd=str(self.repository.root),
                              start_new_session=True)
         except Exception as error:
             return util.show_error(
                 self.get_root(), f"Failed to run {command}", error)
-        # The command runs out of sight, so say that it was started.
         self._toast.flash(f"Running {command}")
 
     def _on_committed(self, dialog):
@@ -393,20 +328,17 @@ class TaskPage(Gtk.Overlay):
     def focus(self, target):
         """Move focus to `target`: a sidebar section, the diff or a terminal."""
         if target in SECTIONS:
-            # Show the diff of the file focused, also when it was the
-            # one selected already and no selection change follows.
+            # Also when the file was selected already and no selection
+            # change follows.
             if self._file_sidebar.focus_section(target):
                 self._show_diff_view()
             return
         if target == "terminal":
-            # Cycle through the terminals, so that repeated presses take
-            # the user from the diff view to the first one and on.
             names = [f"terminal-{i+1}" for i in range(len(self._terminals))]
             shown = self.stack.get_visible_child_name()
             target = (names[(names.index(shown) + 1) % len(names)]
                       if shown in names else names[0])
-        # Set the visible child even if unchanged, in which case no
-        # notification follows and focus needs to be moved here.
+        # If unchanged, no notification follows to move focus.
         self.stack.set_visible_child_name(target)
         self.focus_shown_view()
 
@@ -418,40 +350,28 @@ class TaskPage(Gtk.Overlay):
         self.focus_shown_view()
 
     def _on_terminal_bell(self, terminal, page, index):
-        # A bell means that whatever runs in the terminal wants
-        # attention: an agent done with its turn, a build finished.
         self._alert_terminal(terminal, page, index, "Agent wants something")
 
     def _on_terminal_command_finished(self, terminal, command, page, index):
-        # A command that ran long enough to be noticed at all is one that
-        # the user has likely walked away from: a test run, an eval, a
-        # training job. Whether it succeeded is between the command and
-        # the shell, we only know that the terminal is at the prompt.
         self._alert_terminal(terminal, page, index, f"{command} finished")
 
     def _alert_terminal(self, terminal, page, index, body):
         window = self.get_root()
-        # Mark only unseen tabs. Being mapped means both this task and
-        # this terminal tab are shown; marking one already shown would
-        # leave a stale dot when switching away.
+        # Mapped means shown, where a mark would be left stale.
         if not terminal.get_mapped():
             page.set_needs_attention(True)
-            # Update the dashboard immediately, without waiting for a poll.
             self._update_status()
             self.emit("changed")
-        # No desktop notification while the user is at this terminal.
         if window.is_active() and window.get_focus() is terminal: return
-        # A desktop notification also reaches the user behind other windows.
         notification = Gio.Notification.new(self.repository.root.name)
         notification.set_body(body)
-        # Add the large body icon alongside GNOME's small application icon.
+        # A large body icon alongside GNOME's small application icon.
         notification.set_icon(Gio.ThemedIcon.new("io.otsaloma.sloppie"))
         # URGENT bypasses GNOME's Do Not Disturb and fullscreen suppression;
         # HIGH only changes queue order. Urgent banners stay until dismissed,
         # and GNotification has no transient flag, so withdraw ours below.
         notification.set_priority(Gio.NotificationPriority.URGENT)
         application = window.get_application()
-        # Replace earlier alerts from this terminal, not other repositories.
         notification_id = f"{self.repository.root}-terminal-{index}"
         application.send_notification(notification_id, notification)
         if index in self._withdraw_sources:
@@ -466,8 +386,7 @@ class TaskPage(Gtk.Overlay):
         return GLib.SOURCE_REMOVE
 
     def _show_diff_view(self):
-        # Focus belongs to the sidebar here, so block the handler that
-        # would move it along to the view shown.
+        # Leave focus in the sidebar.
         with GObject.signal_handler_block(self.stack, self._stack_handler):
             self.stack.set_visible_child_name("diff")
 
@@ -477,7 +396,6 @@ class TaskPage(Gtk.Overlay):
         return self.stack.get_visible_child().get_child()
 
     def focus_shown_view(self):
-        # Focus the view itself, not the scroller around it.
         self.get_shown_view().grab_focus()
 
     def set_wrap_lines(self, wrap):
@@ -491,23 +409,16 @@ class TaskPage(Gtk.Overlay):
                                       Gtk.WrapMode.NONE)
 
     def configure(self):
-        # Give emacs an existing file to edit, holding every item there
-        # is, so that it starts from valid JSON with all the keys spelled
-        # out rather than an empty buffer in a directory that it would
-        # have to offer to create.
+        # Every key spelled out, rather than an empty buffer.
         self.config.write_as_full()
         self._edit(str(self.config.path))
 
     def _on_poll_timeout(self):
-        # The status is polled always, the working tree only when it has
-        # actually changed, that being the expensive one to reload.
         self._update_status()
         try:
             fingerprint = self.repository.get_fingerprint()
         except Exception as error:
-            # No dialog here, nor anywhere else reached from this poll:
-            # a repository gone bad would keep raising the same error
-            # every few seconds, for as long as the window is open.
+            # No dialog on the poll, which would repeat it every few seconds.
             print(f"sloppie: {error}", file=sys.stderr)
             return GLib.SOURCE_CONTINUE
         if fingerprint != self._fingerprint:
@@ -516,10 +427,8 @@ class TaskPage(Gtk.Overlay):
 
     def _update_status(self):
         """Work out what the dashboard should say about this task."""
-        # Outrageously simple on purpose: an agent is waiting for the
-        # user if it rang, that being the only thing it tells us, and
-        # anything else running, be it an agent thinking or a build, is
-        # working and wants nothing.
+        # An agent that rang is waiting, the bell being the only thing an
+        # agent tells us.
         command = self._terminals[0].get_command()
         page = self.stack.get_page(self._terminals[0].get_parent())
         status = ("waiting"
@@ -527,9 +436,6 @@ class TaskPage(Gtk.Overlay):
                   "working")
         elapsed = format_elapsed(self._terminals[0].get_command_elapsed())
         comments = self._comment_sidebar.count_unsent()
-        # Compare what is shown rather than what it was worked out from,
-        # so that nothing is told of a change until the card would
-        # actually read differently.
         if (command, comments, elapsed, status) == \
            (self.command, self.comments, self.elapsed, self.status): return
         self.command = command
@@ -549,46 +455,35 @@ class TaskPage(Gtk.Overlay):
 
     def seen(self):
         """Mark whatever the view shown rang about as seen."""
-        # Called when the tab changes and when the window turns to this
-        # task, both of which put the view in front of the user.
         self.stack.get_page(self.stack.get_visible_child()).set_needs_attention(False)
-        # An agent that rang is waiting, so having seen to it, the card
-        # in the dashboard has a different color to show.
         self._update_status()
         self.emit("changed")
 
     def refresh(self):
         """Reload the list of changed files from git."""
         try:
-            # Take the fingerprint first, so that a change made while
-            # we're reloading is caught by the next poll, not missed.
+            # First, so that a change made while reloading is caught by
+            # the next poll.
             self._fingerprint = self.repository.get_fingerprint()
             changes = self.repository.list_changes()
             branch = self.repository.get_branch()
         except Exception as error:
-            # Reached from the poll too, hence no dialog, see above.
+            # Reached from the poll too, hence no dialog.
             print(f"sloppie: {error}", file=sys.stderr)
             return
         self.branch = branch
-        # The card in the dashboard shows the whole of the diff as one
-        # figure, both sections and the untracked files together.
         self.lines_added = self.lines_removed = 0
         for change in (x for y in changes.values() for x in y):
             if change.added or change.removed:
-                # Binary files have no line counts, hence the fallbacks.
                 self.lines_added += change.added or 0
                 self.lines_removed += change.removed or 0
             elif change.status == "D":
                 # A binary file gone, or an empty one.
                 self.lines_removed += 1
             else:
-                # A binary file changed or a file merely renamed: no
-                # lines to count, but a change that should be seen all
-                # the same, the figure being there to say that there is
-                # something rather than exactly how much.
+                # A binary file changed or a file merely renamed, counted
+                # as one to show that there is something.
                 self.lines_added += 1
-        # Comments are written against a branch, so switching branch
-        # puts the ones shown aside and brings back any of the new one.
         self._comment_sidebar.set_branch(branch)
         self._file_sidebar.set_changes(changes)
         self.emit("changed")

@@ -28,21 +28,18 @@ from itertools import accumulate
 
 def find_spans(a, b):
     """Return the character spans that differ between `a` and `b`."""
-    # Compare word by word rather than character by character, which
-    # would match stray letters shared by two unrelated words and
-    # leave the differences scattered over the whole line.
+    # Word by word, as characters would match stray letters shared by
+    # unrelated words.
     atokens = re.findall(r"\w+|\W", a)
     btokens = re.findall(r"\w+|\W", b)
     matcher = difflib.SequenceMatcher(None, atokens, btokens)
     if matcher.ratio() < 0.5:
-        # Too little in common for the parts that match to mean anything.
         return [], []
     aends = list(accumulate(map(len, atokens), initial=0))
     bends = list(accumulate(map(len, btokens), initial=0))
     aspans, bspans = [], []
     for op, i1, i2, j1, j2 in matcher.get_opcodes():
         if op == "equal": continue
-        # Deletions are empty on one side and insertions on the other.
         if i1 != i2: aspans.append((aends[i1], aends[i2]))
         if j1 != j2: bspans.append((bends[j1], bends[j2]))
     return aspans, bspans
@@ -101,8 +98,6 @@ class DiffView(GtkSource.View):
         self.set_highlight_current_line(False)
         self.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         buffer = self.get_buffer()
-        # The language is that of the file shown, set along with a diff,
-        # so that the code is highlighted as the code it is.
         buffer.set_highlight_syntax(True)
         buffer.set_highlight_matching_brackets(False)
         manager = GtkSource.StyleSchemeManager.get_default()
@@ -111,23 +106,20 @@ class DiffView(GtkSource.View):
 
     def _init_tags(self):
         """Create the tags that mark up the diff itself."""
-        # The highlighting engine is busy with the file's own language,
-        # which knows nothing of diffs, so everything that says what the
-        # diff says is ours to apply as tags. Tags made here, before the
-        # engine has any of its own, take precedence over the engine's.
+        # The highlighting is of the file's own language, which knows
+        # nothing of diffs. Tags made here, before the highlighter has
+        # any of its own, take precedence over its.
         buffer = self.get_buffer()
         scheme = buffer.get_style_scheme()
         for kind in ("added", "removed"):
             style = scheme.get_style(f"slop:{kind}-line")
             buffer.create_tag(f"{kind}-line",
                               paragraph_background=style.get_property("line-background"))
-            # A character background, which is a different property than
-            # the line background above, so that the two stack.
+            # A character background, which stacks on the line background.
             style = scheme.get_style(f"slop:refine-{kind}")
             buffer.create_tag(f"refine-{kind}",
                               background=style.get_property("background"))
-        # The lines of the diff itself are not code, so undo the bold
-        # and italic that the language would give the words in them.
+        # Undo the bold and italic that the language would give.
         style = scheme.get_style("slop:hunk")
         buffer.create_tag("hunk",
                           foreground=style.get_property("foreground"),
@@ -144,8 +136,7 @@ class DiffView(GtkSource.View):
         """Highlight the code as the language that `path` is written in."""
         language = None
         if path is not None:
-            # The content type is what identifies a file that goes by
-            # name rather than by extension, such as a Makefile.
+            # The content type identifies files such as a Makefile.
             content_type = Gio.content_type_guess(path, None)[0]
             manager = GtkSource.LanguageManager.get_default()
             language = manager.guess_language(path, content_type)
@@ -163,13 +154,9 @@ class DiffView(GtkSource.View):
         }
         i = 0
         while i < len(lines):
-            # Tint a run of lines of the same kind in one go, there
-            # being far fewer runs than there are lines.
             j = i
             while j < len(lines) and lines[j].kind == lines[i].kind: j += 1
             if name := tags.get(lines[i].kind):
-                # Ending at the start of the line after the run leaves
-                # that line untouched, tags covering no character of it.
                 buffer.apply_tag_by_name(name,
                                          buffer.get_iter_at_line(i)[1],
                                          buffer.get_iter_at_line(j)[1])
@@ -182,21 +169,18 @@ class DiffView(GtkSource.View):
             if lines[i].kind != "removed":
                 i += 1
                 continue
-            # Pair a run of removed lines with the run of added lines
-            # right after it, but only when the two runs are of equal
-            # length, which is when the pairing is unambiguous.
+            # Pair runs of removed and added lines only if equally long,
+            # which is when the pairing is unambiguous.
             j = i
             while j < len(lines) and lines[j].kind == "removed": j += 1
             k = j
             while k < len(lines) and lines[k].kind == "added": k += 1
             if j - i == k - j:
                 for old, new in zip(range(i, j), range(j, k)):
-                    # Skip the leading '-' and '+', which always differ.
                     oldtext, newtext = lines[old].text[1:], lines[new].text[1:]
                     if max(len(oldtext), len(newtext)) > 10000:
-                        # Comparing is quadratic in the length of a line
-                        # and a pair of lines this long is minified code
-                        # or data, where words mean nothing anyway.
+                        # Comparing is quadratic, and lines this long are
+                        # minified code or data anyway.
                         continue
                     oldspans, newspans = find_spans(oldtext, newtext)
                     self._tag(old, oldspans, "refine-removed")
@@ -206,8 +190,7 @@ class DiffView(GtkSource.View):
     def _tag(self, line, spans, name):
         buffer = self.get_buffer()
         for start, end in spans:
-            # The spans skipped the leading marker, the buffer has it
-            # along with the space that follows it.
+            # The buffer has the marker and a space before the text.
             buffer.apply_tag_by_name(
                 name,
                 buffer.get_iter_at_line_offset(line, start + 2)[1],
@@ -216,21 +199,17 @@ class DiffView(GtkSource.View):
     def get_position(self):
         """Return the one-based (line, column) in the new file at the cursor."""
         buffer = self.get_buffer()
-        # A selection is returned as its bounds and an empty tuple if
-        # there is none. The cursor is at the end of a selection made by
-        # dragging, but its start is the interesting end of it.
+        # The cursor is at the end of a selection made by dragging, but
+        # its start is the interesting end of it.
         bounds = buffer.get_selection_bounds()
         start = (bounds[0] if bounds else
                  buffer.get_iter_at_mark(buffer.get_insert()))
         line = start.get_line()
         if line < len(self._lines) and self._lines[line].new is not None:
-            # Column one is the first character after the diff marker
-            # and the space after it, which is where the cursor lands
-            # if it is on either of the two.
+            # The marker and the space after it map to column one too.
             return self._lines[line].new, max(start.get_line_offset() - 1, 1)
-        # Removed lines and headers exist only in the diff, so fall back
-        # on the closest line that the new file has, the one after it
-        # being where a removal took place.
+        # Removed lines and headers are not in the new file, so fall back
+        # on the closest line after, where a removal took place.
         for i in [*range(line, len(self._lines)), *reversed(range(line))]:
             if self._lines[i].new is not None:
                 return self._lines[i].new, 1
@@ -242,9 +221,8 @@ class DiffView(GtkSource.View):
         bounds = buffer.get_selection_bounds()
         if not bounds: return None
         start, end = bounds
-        # A comment is on whole lines, however much of the first and the
-        # last one was actually selected. A line where the selection only
-        # ends, at its very start, has nothing of it selected.
+        # Whole lines, except for a line where the selection only ends,
+        # at its very start.
         start.set_line_offset(0)
         if not end.starts_line() and not end.ends_line():
             end.forward_to_line_end()
@@ -253,25 +231,18 @@ class DiffView(GtkSource.View):
     def set_diff(self, lines, path=None, keep_position=False):
         """Show the parsed diff `lines` of `path`, `keep_position` to not scroll to the top."""
         buffer = self.get_buffer()
-        # A space after the marker of a changed line, so that the code
-        # is not crowded against it, and one on a context line too, to
-        # keep the code of all lines in the same column.
         text = "\n".join(x.text[:1] + " " + x.text[1:]
                          if x.kind in ("context", "added", "removed") else x.text
                          for x in lines)
         if keep_position and text == buffer.get_text(*buffer.get_bounds(), True):
-            # Nothing to redo, and redoing it would only lose the position.
             return
         top = (self.get_line_at_y(self.get_visible_rect().y)[0].get_line()
                if keep_position else 0)
-        # Set the language first, so that the text is highlighted as it
-        # is inserted rather than all over again right after.
+        # Set first, so that the text is not highlighted twice.
         self._set_language(path)
         buffer.set_text(text)
         self._lines = lines
-        # Nothing here can be edited, but the cursor still marks the
-        # place that the edit action opens in the editor. With no diff
-        # there's no place either, only a caret blinking in the void.
+        # The cursor marks the place that the edit action opens.
         self.set_cursor_visible(bool(lines))
         self._tint(lines)
         self._refine(lines)

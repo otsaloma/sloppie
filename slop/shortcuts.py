@@ -33,11 +33,8 @@ class ShortcutsWindow(Gtk.ShortcutsWindow):
         self._init_section()
 
     def _init_section(self):
-        # The one section, which keeps the plain title in the header
-        # bar: a second one would turn that into a dropdown to switch
-        # between them, hiding half the shortcuts behind it. The groups
-        # are laid out as columns, seventeen lines being what fits them
-        # all on one page rather than spilling onto a second.
+        # One section only, a second would turn the title into a
+        # dropdown. Seventeen lines fit all the groups on one page.
         section = Gtk.ShortcutsSection(max_height=17, title="Shortcuts")
         for title, shortcuts in (
                 ("Dashboard", (
@@ -71,8 +68,6 @@ class ShortcutsWindow(Gtk.ShortcutsWindow):
                     ("<Shift><Control>r", "Resume Agent"),
                 )),
                 ("Window", (
-                    # A toggle, so this is the way back from the
-                    # dashboard too, the tasks being what it zooms in to.
                     ("F4", "Dashboard"),
                     ("F10", "Main Menu"),
                     ("<Control>w", "Close Task"),

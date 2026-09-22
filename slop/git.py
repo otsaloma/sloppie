@@ -66,9 +66,6 @@ class FileChange(GObject.Object):
 
 def sort_key(path):
     """Return a sort key that puts directories first, ignoring case."""
-    # Compare component by component, so that at each level of the tree
-    # the components that have something below them come first. Case is
-    # only a tie-breaker, to keep the order of equal names stable.
     *directories, name = path.split("/")
     return [(0, x.casefold(), x) for x in directories] + [(1, name.casefold(), name)]
 
@@ -85,14 +82,11 @@ def describe_header(texts, has_hunks):
     if (old := value("copy from ")) and (new := value("copy to ")):
         descriptions.append(f"Copied from {old} to {new}")
     if (old := value("old mode ")) and (new := value("new mode ")):
-        # Of the six digits of a mode, the last three are the permissions
-        # and the first three the type of the file, which git only ever
-        # reports as a deletion and an addition, not as a mode change.
+        # git reports a change of file type as a deletion and an addition,
+        # so only the permissions, the last three digits, differ here.
         descriptions.append(f"Permissions changed from {old[-3:]} to {new[-3:]}")
     if any(x.startswith("* Unmerged path ") for x in texts):
-        # A file left unmerged by a conflict has no diff against the
-        # index at all, git saying only that it is unmerged, which
-        # would leave nothing to show of the file.
+        # git gives no diff of an unmerged file against the index.
         descriptions.append("Unmerged file with conflicts to resolve")
     if any(x.startswith("Binary files ") for x in texts):
         descriptions.append("Binary file " + (
@@ -100,8 +94,7 @@ def describe_header(texts, has_hunks):
             "deleted" if value("deleted file mode ") is not None else
             "changed"))
     elif not has_hunks:
-        # A text file with no hunks at all has no lines to show, which
-        # only an empty file, added or deleted, can be.
+        # A text file without hunks can only be an empty file.
         if value("new file mode ") is not None:
             descriptions.append("Empty file added")
         if value("deleted file mode ") is not None:
@@ -141,8 +134,7 @@ def parse_diff(text):
         # Drop the trailing newline of the diff itself.
         lines.pop()
     # Replace each file's header with a description of what it says that
-    # the sidebar and the hunks don't, the rest of it being either noise
-    # or repetition, and none of it written for a human to read.
+    # the sidebar and the hunks don't.
     output = []
     i = 0
     while i < len(lines):
@@ -169,12 +161,9 @@ class Repository:
                                              "--git-common-dir").strip())
 
     def _git(self, *args, cwd=None, ok_codes=(0,)):
-        # Suppress external diff drivers and color, which would both
-        # render the output unparseable. 'color.ui' is only the default
-        # that the per-command 'color.diff' overrides, so deny that too,
-        # diff being the one command here whose output it would color.
-        # Everything else is left to the user's git configuration, so
-        # that what we show matches what 'git diff' shows in a terminal.
+        # Color would render the output unparseable. 'color.ui' is only
+        # the default that 'color.diff' overrides, so deny both. All else
+        # is left to the user's configuration, to match 'git diff'.
         command = ["git", "--no-pager",
                    "-c", "color.ui=never",
                    "-c", "color.diff=never", *args]
@@ -213,10 +202,8 @@ class Repository:
 
     def _parse_name_status(self, output):
         # Records are 'status\0path\0', except for renames and copies,
-        # where the status is followed by the old and the new path. A
-        # file left unmerged by a conflict is listed twice, first as U
-        # and then as M, of which only the U says that it has conflicts,
-        # so keep the first status given for a path rather than the last.
+        # where the status is followed by the old and the new path. An
+        # unmerged file is listed first as U and then as M, keep the U.
         statuses = {}
         fields = [x for x in output.split("\0") if x]
         i = 0
@@ -236,8 +223,7 @@ class Repository:
         return self._git("diff", "--no-ext-diff", *args, **kwargs)
 
     def _paths(self, change):
-        # Renames and copies concern both of their paths. Given the new
-        # path alone, git would treat the change as a new file.
+        # Given the new path alone, git would take a rename for a new file.
         return [change.old_path, change.path] if change.old_path else [change.path]
 
     def _list_diff_changes(self, section, *args):
@@ -248,37 +234,30 @@ class Repository:
 
     def _count_lines(self, path):
         """Return lines added and removed by `path` being new, as numstat would."""
-        # Counted here rather than asked of git, which can only diff one
-        # file per run and so costs a process per untracked file: a
-        # repository that has picked up a few hundred of them, a build
-        # tree or an unpacked archive, spent the better part of a second
-        # on it. Read in blocks, an untracked file being anything at
-        # all, a stray gigabyte of log included.
+        # Counted here, as git would need a process per file, which
+        # took the better part of a second for a few hundred files.
+        # Read in blocks, an untracked file being possibly huge.
         added, nothing, trailing = 0, True, True
         try:
             with open(self.root / path, "rb") as f:
                 while block := f.read(1 << 16):
-                    # Binary as git calls it: a zero byte anywhere in
-                    # the first 8000, which is all that it sniffs.
+                    # Binary as git sniffs it: a zero byte in the first 8000.
                     if nothing and b"\0" in block[:8000]:
                         return None, None
                     added += block.count(b"\n")
                     nothing = False
                     trailing = block.endswith(b"\n")
         except Exception:
-            # Gone since it was listed, or unreadable.
             return None, None
-        # git counts a last line that no newline ends as a line even so.
+        # git counts a last line without a newline too.
         return added if nothing or trailing else added + 1, 0
 
     def _list_untracked_changes(self):
         output = self._git("ls-files", "--others", "--exclude-standard", "-z")
         paths = sorted((x for x in output.split("\0") if x), key=sort_key)
-        # Counting means reading every one of them, which is nothing for
-        # the handful that a repository normally has and a great deal
-        # for the thousands that a virtualenv or a node_modules left out
-        # of .gitignore brings. Past a hundred the total is no use to
-        # read anyway, so only say of each that it is one file added.
+        # Counting reads every file, too much for a virtualenv or a
+        # node_modules left out of .gitignore, so past a hundred files
+        # count each as one line.
         if len(paths) > 100:
             return [FileChange("untracked", x, "A", None, 1, 0) for x in paths]
         return [FileChange("untracked", x, "A", None, *self._count_lines(x))
@@ -294,8 +273,6 @@ class Repository:
 
     def is_valid_branch_name(self, branch):
         """Return ``True`` if git would have `branch` as a branch name."""
-        # Asked of git rather than matched against a rule of our own,
-        # which would agree with it only roughly.
         try:
             self._git("check-ref-format", "--branch", branch)
         except Exception:
@@ -304,10 +281,7 @@ class Repository:
 
     def get_default_branch(self):
         """Return the default branch, ``None`` if there is no such branch."""
-        # Whichever of main and master the repository has among its own
-        # branches, there being no repository with both. Local branches
-        # alone, so that one without a remote is no different from one
-        # with, and no network either way.
+        # Local branches alone, so that no remote or network is needed.
         output = self._git("branch", "--list", "main", "master",
                            "--format=%(refname:short)")
 
@@ -315,8 +289,7 @@ class Repository:
 
     def has_branch(self, branch):
         """Return ``True`` if `branch` is a branch of this repository."""
-        # The name is taken as a pattern, but a branch name can hold
-        # none of the characters that would make it more than a name.
+        # Taken as a pattern, but a branch name has no glob characters.
         return bool(self._git("branch", "--list", branch).strip())
 
     def get_branch(self):
@@ -336,14 +309,12 @@ class Repository:
 
     def get_fingerprint(self):
         """Return a value that changes when anything in the repository does."""
-        # Cheap enough to poll: a single git command that skips ignored
-        # files. Status alone would miss edits that leave a file's status
-        # unchanged, so include modification times of the listed files.
+        # Status alone would miss further edits to a file already
+        # changed, hence the modification times.
         output = self._git("status", "--porcelain", "-z", "--branch", "--untracked-files=all")
         fields = [x for x in output.split("\0") if x]
         times = []
-        # Skip the header '## branch...' that --branch adds as the first
-        # record, there to catch a switch of branch as a change too.
+        # Skip the '## branch' header, there to catch a branch switch.
         i = 1
         while i < len(fields):
             # Records are 'XY path\0', except for renames and copies,
@@ -357,8 +328,7 @@ class Repository:
     def get_diff(self, change):
         """Return the unified diff of `change` as text."""
         if change.section == "untracked":
-            # An untracked file has nothing to diff against, but git can
-            # still render it as an addition against an empty file.
+            # --no-index exits with 1 when there are differences.
             return self._diff("--no-index", "--", "/dev/null", change.path, ok_codes=(0, 1))
         args = ["--cached"] if change.section == "staged" else []
         return self._diff(*args, "--", *self._paths(change))
@@ -379,13 +349,10 @@ class Repository:
 
     def trash(self, change):
         """Move the file of `change` to the trash."""
-        # Note that trashing is not supported on all file systems,
-        # /tmp and the like being system internal mounts to GLib.
+        # Not supported on system internal mounts such as /tmp.
         Gio.File.new_for_path(str(self.root / change.path)).trash(None)
 
     def commit(self, message, amend=False):
         """Commit the staged changes with `message`."""
-        # Amending rewrites the previous commit, which is also the way
-        # to only edit its message, with nothing staged.
         args = ["--amend"] if amend else []
         self._git("commit", "--quiet", *args, "--message", message)

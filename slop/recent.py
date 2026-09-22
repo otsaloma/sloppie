@@ -21,15 +21,12 @@ from gi.repository import GLib
 from pathlib import Path
 from slop import util
 
-# Recently opened repositories, kept as a JSON file of path and time
-# objects, outside any repository, this being a list across them all.
+# Recently opened repositories, across all of them, hence outside any.
 PATH = Path(GLib.get_user_data_dir()) / "sloppie" / "recent.json"
 
 def _read():
     """Return recorded repositories as items, most recent first."""
     items = util.read_json(PATH, [])
-    # Forget repositories not opened in the last two weeks, the list
-    # being of what one is working on, not of everything ever opened.
     cutoff = time.time() - 14 * 86400
     items = [x for x in items if x.get("time", 0) > cutoff]
     items.sort(key=lambda x: x["time"], reverse=True)
@@ -38,16 +35,13 @@ def _read():
 def list_repositories():
     """Return the paths of recently opened repositories, most recent first."""
     paths = [Path(x["path"]) for x in _read()]
-    # Skip repositories since moved or removed. '.git' is a directory
-    # in a normal repository, but a file in a worktree or a submodule.
+    # '.git' is a file in a worktree or a submodule.
     return [x for x in paths if (x / ".git").exists()]
 
 def list_parents():
     """Return the repository each subtask was forked from, by path."""
-    # Only a subtask has one, a repository opened on its own having been
-    # forked from nothing. Left in for repositories since moved or
-    # removed too, unlike above: the caller pairs these with the paths
-    # listed there and so drops the rest on its own.
+    # Not checked for existence, the caller pairs these with the paths
+    # of list_repositories.
     return {Path(x["path"]): Path(x["parent"])
             for x in _read() if x.get("parent")}
 
@@ -71,24 +65,17 @@ def remove_repository(path):
 
 def add_repository(path, parent=None):
     """Record `path` as the most recently opened repository."""
-    # Scratch repositories under /tmp come and go and are never returned
-    # to, be they made by hand for a quick look or by the tests.
+    # Scratch repositories, the tests' included, are never returned to.
     if Path(path).is_relative_to("/tmp"): return
     items = _read()
     previous = next((x for x in items if x["path"] == str(path)), {})
-    # A task is recorded again every time it is opened, but forked only
-    # once, so keep the parent of a subtask across the openings that
-    # follow, which know nothing of where it came from.
+    # Only forking gives a parent, keep it across the later openings.
     if parent is None:
         parent = previous.get("parent")
     items = [x for x in items if x["path"] != str(path)]
     item = {"path": str(path), "time": round(time.time())}
-    # Only a subtask has a parent, so leave the field out entirely
-    # rather than write a null for every repository opened.
     if parent is not None:
         item["parent"] = str(parent)
-    # An agent session outlives the openings of the repository it was
-    # left in, that being the whole point of writing it down here.
     if resume := previous.get("resume"):
         item["resume"] = resume
     items.insert(0, item)

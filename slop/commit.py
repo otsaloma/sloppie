@@ -35,18 +35,15 @@ class CommitDialog(Gtk.Window):
         self.repository = repository
         self._amend = Gtk.Switch()
         self._button = Gtk.Button(label="C_ommit", use_underline=True)
-        # A source view for the sake of the right margin line, which a
-        # plain text view has no way to draw.
+        # A source view for the right margin line.
         self._view = GtkSource.View()
         # The message typed, kept while showing the one amended.
         self._typed = ""
         try:
             self._staged = repository.has_staged_changes()
         except Exception as error:
-            # Let the commit fail and explain itself, rather than block
-            # it here on the grounds of a check that didn't work. No
-            # dialog either, this dialog not being presented yet and
-            # thus about to cover anything shown on top of the window.
+            # Let the commit fail and explain itself. No dialog, as this
+            # one, not yet presented, would cover it.
             print(f"sloppie: {error}", file=sys.stderr)
             self._staged = True
         self._init_properties(parent)
@@ -67,8 +64,6 @@ class CommitDialog(Gtk.Window):
         header.pack_start(cancel)
         self._button.add_css_class("suggested-action")
         header.pack_end(self._button)
-        # Amending rewrites the previous commit, its message shown here
-        # for editing in place of whatever was typed.
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         box.append(Gtk.Label(label="_Amend",
                              use_underline=True,
@@ -79,18 +74,15 @@ class CommitDialog(Gtk.Window):
         self._view.add_css_class("monospace")
         self._view.add_css_class("slop-commit-view")
         # Margins rather than CSS padding, which would leave the right
-        # margin line short of the edges, being drawn only where the
-        # text is.
+        # margin line short of the edges.
         self._view.set_top_margin(12)
         self._view.set_right_margin(12)
         self._view.set_bottom_margin(12)
         self._view.set_left_margin(12)
         self._view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        # Commit messages are conventionally wrapped at 72 characters.
         self._view.set_show_right_margin(True)
         self._view.set_right_margin_position(72)
-        # The margin line takes its color from the style scheme, without
-        # which, as buffers are by default, it is not drawn at all.
+        # Without a style scheme the margin line is not drawn at all.
         manager = GtkSource.StyleSchemeManager.get_default()
         self._view.get_buffer().set_style_scheme(manager.get_scheme("Adwaita"))
         scroller = Gtk.ScrolledWindow()
@@ -98,8 +90,6 @@ class CommitDialog(Gtk.Window):
         scroller.set_child(self._view)
         self.set_child(scroller)
         if not self._staged:
-            # Say why the commit button is insensitive in place of the
-            # message, there being no message to write.
             self._view.get_buffer().set_text("# Nothing is staged!")
 
     def _init_signal_handlers(self):
@@ -108,8 +98,7 @@ class CommitDialog(Gtk.Window):
         buffer = self._view.get_buffer()
         buffer.connect("changed", lambda *args: self._update_button())
         self._update_button()
-        # The text view takes Enter for a newline and would take Ctrl+Enter
-        # too, hence the capture phase, where these run before it.
+        # Capture phase to beat the text view, which takes Ctrl+Enter.
         shortcuts = Gtk.ShortcutController(
             propagation_phase=Gtk.PropagationPhase.CAPTURE)
         shortcuts.add_shortcut(Gtk.Shortcut(
@@ -125,9 +114,7 @@ class CommitDialog(Gtk.Window):
         return buffer.get_text(*buffer.get_bounds(), False).strip()
 
     def _update_button(self):
-        # An empty message would only abort the commit and with nothing
-        # staged there is nothing to commit, amending being the
-        # exception, as it can rewrite the previous commit alone.
+        # Amending can reword the previous commit with nothing staged.
         self._button.set_sensitive(bool(self._get_message()) and
                                    (self._staged or self._amend.get_active()))
 
@@ -144,7 +131,6 @@ class CommitDialog(Gtk.Window):
             buffer.set_text(message)
         else:
             buffer.set_text(self._typed)
-        # Amending is a commit of its own, with nothing staged too.
         self._update_button()
 
     def _commit(self):

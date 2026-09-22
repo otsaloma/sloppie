@@ -56,20 +56,14 @@ class RunDialog(Gtk.Window):
         self._view.set_right_margin(12)
         self._view.set_bottom_margin(12)
         self._view.set_left_margin(12)
-        # A command is a single line, but a long one can be wrapped
-        # rather than run off the edge of the view.
         self._view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         buffer = self._view.get_buffer()
         buffer.set_text(self.config.read_item("run-command") or "")
-        # Start with the whole command selected, so that typing replaces
-        # it, this usually being either a first or a fresh command.
         buffer.select_range(*buffer.get_bounds())
         scroller = Gtk.ScrolledWindow()
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroller.set_child(self._view)
         self.set_child(scroller)
-        # Typing is the only thing to do here, so start with the text
-        # view focused rather than the cancel button in the header.
         self.set_focus(self._view)
 
     def _init_signal_handlers(self):
@@ -77,8 +71,7 @@ class RunDialog(Gtk.Window):
         buffer = self._view.get_buffer()
         buffer.connect("changed", lambda *args: self._update_button())
         self._update_button()
-        # The text view takes Enter for a newline and would take Ctrl+Enter
-        # too, hence the capture phase, where these run before it.
+        # Capture phase to beat the text view, which takes Ctrl+Enter.
         shortcuts = Gtk.ShortcutController(
             propagation_phase=Gtk.PropagationPhase.CAPTURE)
         shortcuts.add_shortcut(Gtk.Shortcut(
@@ -94,12 +87,10 @@ class RunDialog(Gtk.Window):
         return buffer.get_text(*buffer.get_bounds(), False).strip()
 
     def _update_button(self):
-        # An empty command is nothing to run.
         self._button.set_sensitive(bool(self._get_text()))
 
     def _save(self):
-        # Reachable with nothing typed by way of Ctrl+Enter, which,
-        # unlike the button, cannot be made insensitive.
+        # Ctrl+Enter bypasses the insensitive button.
         if not self._get_text(): return
         self.config.write_item("run-command", self._get_text())
         self.emit("saved", self._get_text())

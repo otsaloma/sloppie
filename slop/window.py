@@ -51,9 +51,6 @@ class Window(Gtk.ApplicationWindow):
         self._init_tab_shortcuts()
         self._init_header()
         self._init_widgets()
-        # Launched from a launcher rather than a terminal, with no
-        # directory to fall back on, the dashboard is where to start,
-        # being the one place to open a repository from.
         if repository is not None:
             self._open_task(repository)
         self._sync_header()
@@ -68,15 +65,10 @@ class Window(Gtk.ApplicationWindow):
                                 self.add_subtask(path, branch))
         self._dashboard.connect("trash-task", lambda dashboard, path:
                                 self._on_trash_task(path))
-        # No switcher for this one: the dashboard is how the user moves
-        # between the tasks, and the only way back to it is the button
-        # in the header bar.
         self._stack = Gtk.Stack()
         self._stack.add_named(self._dashboard, "dashboard")
         self.set_child(self._stack)
         self._update_dashboard()
-        # A window gone takes its tasks with it, which have to be told,
-        # a task outliving the widget tree it was part of.
         self.connect("close-request", self._on_close_request)
         self.connect("destroy", self._on_destroy)
 
@@ -95,11 +87,8 @@ class Window(Gtk.ApplicationWindow):
         try:
             repository = slop.Repository(path)
         except Exception as error:
-            # Leave the dashboard be, the user can try another directory.
             return util.show_error(self, f"Failed to open {path}", error)
         for task in self._tasks:
-            # Already open, and a repository is only ever open once, any
-            # path inside it having led to the same root.
             if task.repository.root == repository.root:
                 return self._show_task(task)
         self._open_task(repository, setup)
@@ -126,26 +115,15 @@ class Window(Gtk.ApplicationWindow):
                 return util.show_error(
                     self, f"Failed to fork {branch}", error)
             recent.add_repository(directory, parent=repository.root)
-            # The git half of the forking is the terminal's to run, so
-            # that it can be watched and answered, and the task lands on
-            # that terminal, which is where the user was headed anyway.
-            # The configuration is the one the copy shares with the
-            # repository forked from, so either has the same to say.
             setup = subtask.get_setup_command(
                 branch, slop.Config(repository).read_item("setup-command"))
             self.open_task(directory, setup)
 
-        # A copy takes long enough to need saying that it is happening,
-        # a repository of any size being gigabytes of virtualenv and
-        # node_modules before anything that git knows about.
         self._dashboard.add_pending(directory, repository.root, branch)
         subtask.fork(repository, branch, on_forked)
 
     def _on_trash_task(self, path):
         """Ask before moving the subtask at `path` to the trash."""
-        # Always asked, whether or not anything runs in it: what goes is
-        # a whole checkout and the branch that only ever existed in it,
-        # neither of which git can give back.
         if util.confirm(self, f"Move {path.name} to the trash?",
                         "The subtask and the work on its branch can only "
                         "be had back from the trash.",
@@ -154,14 +132,10 @@ class Window(Gtk.ApplicationWindow):
 
     def trash_task(self, path):
         """Move the subtask at `path` to the trash, closing it first."""
-        # Closed first, so that the shells running there are hung up
-        # rather than left running in a directory that has moved.
         self.close_task(path)
         try:
             subtask.trash(path)
         except Exception as error:
-            # Left in the list, so that it can be opened again or
-            # trashed once whatever stopped this has been seen to.
             return util.show_error(
                 self, f"Failed to trash {path.name}", error)
         recent.remove_repository(path)
@@ -175,14 +149,12 @@ class Window(Gtk.ApplicationWindow):
             self._tasks.remove(task)
             if self._last_task is task:
                 self._last_task = None
-            # Out of the window first, so that the shells hung up below
-            # are not taken for a shell that exited on its own and
-            # started afresh, which only happens while there is a window.
+            # Out of the window first, or the terminals would start new
+            # shells in place of the ones hung up below.
             self._stack.remove(task)
             task.close()
             self._update_dashboard()
-            # Closing the task on screen leaves nothing to look at, and
-            # the stack would fall back on a page of its own choosing.
+            # Else the stack would show a page of its own choosing.
             if shown:
                 self._show_dashboard()
             return
@@ -192,13 +164,11 @@ class Window(Gtk.ApplicationWindow):
 
     def _show_task(self, task):
         self._stack.set_visible_child(task)
-        # Turning to a task is seeing whatever rang in the view it shows.
         task.seen()
         task.focus_shown_view()
         self._sync_header()
 
     def _show_dashboard(self):
-        # Remember which task to zoom back in to.
         if self._page is not None:
             self._last_task = self._page
         self._stack.set_visible_child(self._dashboard)
@@ -217,9 +187,6 @@ class Window(Gtk.ApplicationWindow):
 
     def _on_close_request(self, window):
         """Ask before quitting with tasks open, and stop if told to."""
-        # Reached from Ctrl+Q, from the header bar's close button and
-        # from the window manager, which all mean the same thing here,
-        # the application having the one window.
         if not self._tasks: return False
         count = len(self._tasks)
         return not util.confirm(
@@ -229,8 +196,6 @@ class Window(Gtk.ApplicationWindow):
             "Quit", destructive=True)
 
     def _on_task_changed(self, task):
-        # The header bar only ever shows the task on screen, but the
-        # dashboard shows them all, and so needs every one of these.
         self._dashboard.update()
         self._sync_attention()
         if task is self._page:
@@ -238,10 +203,7 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_actions(self):
         # The actions of the task shown, each performed by the method of
-        # the same name. The first four are also the file sidebar's
-        # context menu, which shows the accelerators added here. The
-        # shortcuts run in the capture phase, so that they beat the
-        # terminal, which would eat them and pass them on to the shell.
+        # the same name. Capture phase to beat the terminal.
         shortcuts = Gtk.ShortcutController(
             propagation_phase=Gtk.PropagationPhase.CAPTURE)
         for name, accelerator in (
@@ -265,31 +227,22 @@ class Window(Gtk.ApplicationWindow):
             shortcuts.add_shortcut(Gtk.Shortcut(
                 trigger=Gtk.ShortcutTrigger.parse_string(accelerator),
                 action=Gtk.NamedAction.new(f"win.{name}")))
-        # Closing one task, which is what there is to close, the window
-        # holding all of them. Disabled on the dashboard, where there is
-        # no task shown to be the one meant.
         action = Gio.SimpleAction(name="close-task", enabled=False)
         action.connect("activate", self._on_close_task_activate)
         self.add_action(action)
         shortcuts.add_shortcut(Gtk.Shortcut(
             trigger=Gtk.ShortcutTrigger.parse_string("<Control>w"),
             action=Gtk.NamedAction.new("win.close-task")))
-        # Quitting, the application having the one window. Closing that
-        # window is the same thing and asks the same question, so leave
-        # both to it rather than have an action of our own.
+        # Quitting is closing the one window, which asks first.
         shortcuts.add_shortcut(Gtk.Shortcut(
             trigger=Gtk.ShortcutTrigger.parse_string("<Control>q"),
             action=Gtk.NamedAction.new("window.close")))
-        # This is the toggle in the header bar menu, whose state follows
-        # the task shown, being read from its repository's config.
         action = Gio.SimpleAction.new_stateful(
             "wrap-lines", None, GLib.Variant.new_boolean(True))
         action.set_enabled(False)
         action.connect("change-state", self._on_wrap_lines_change_state)
         self.add_action(action)
-        # Zooming out to the dashboard and back in to the task last
-        # looked at. A stateful action without a parameter toggles on
-        # activation, which gives the button and F4 the same behaviour.
+        # A stateful action without a parameter toggles on activation.
         action = Gio.SimpleAction.new_stateful(
             "dashboard", None, GLib.Variant.new_boolean(True))
         action.connect("change-state", self._on_dashboard_change_state)
@@ -298,9 +251,6 @@ class Window(Gtk.ApplicationWindow):
             trigger=Gtk.ShortcutTrigger.parse_string("F4"),
             action=Gtk.NamedAction.new("win.dashboard")))
         self.add_controller(shortcuts)
-        # These two only ever open a window, without a keyboard shortcut
-        # of their own, so they are always enabled and need none of the
-        # above.
         action = Gio.SimpleAction(name="shortcuts")
         action.connect("activate", self._on_shortcuts_activate)
         self.add_action(action)
@@ -309,17 +259,11 @@ class Window(Gtk.ApplicationWindow):
         self.add_action(action)
 
     def _on_task_action(self, action, target, method):
-        # Every action but the window's own is the shown task's to
-        # perform, the window only holding them for the header bar and
-        # the accelerators.
         getattr(self._page, method)()
 
     def _init_focus_shortcuts(self):
-        # Alt accelerators that only move focus, matching the mnemonics
-        # underlined in the sidebar section titles and the stack
-        # switcher when Alt is held. They run in the capture phase, so
-        # that they beat both those mnemonics, which would move focus
-        # elsewhere, and the terminal, which would eat them.
+        # Matching the mnemonics of the sidebar and the stack switcher.
+        # Capture phase to beat both those mnemonics and the terminal.
         action = Gio.SimpleAction(name="focus",
                                   parameter_type=GLib.VariantType("s"),
                                   enabled=False)
@@ -340,10 +284,6 @@ class Window(Gtk.ApplicationWindow):
         self.add_controller(shortcuts)
 
     def _init_tab_shortcuts(self):
-        # The customary accelerators to step through the tabs of the
-        # stack, left and right: [ Diff | Terminal | 2 | 3 ], wrapping
-        # around at either end. Capture phase again, so that the
-        # terminal doesn't eat them.
         action = Gio.SimpleAction(name="switch-tab",
                                   parameter_type=GLib.VariantType("i"),
                                   enabled=False)
@@ -367,10 +307,8 @@ class Window(Gtk.ApplicationWindow):
 
     def _init_header(self):
         header = Gtk.HeaderBar()
-        # Zooming out to the dashboard, far left, where it stays on the
-        # dashboard too, that being what zooms back in. The dot is the
-        # one the stack switcher puts on a tab that rang, here for the
-        # terminals of every task, whose tabs are out of sight.
+        # The dot the stack switcher puts on a tab that rang, here for
+        # the tabs of all tasks.
         self._attention_dot = Gtk.Box(halign=Gtk.Align.END,
                                       valign=Gtk.Align.START,
                                       visible=False)
@@ -378,9 +316,7 @@ class Window(Gtk.ApplicationWindow):
         self._attention_dot.add_css_class("slop-attention-dot")
         overlay = Gtk.Overlay(child=Gtk.Image(icon_name="view-grid-symbolic"))
         overlay.add_overlay(self._attention_dot)
-        # A plain button, not a toggle: activating the stateful action
-        # flips it either way, and the page shown already says which of
-        # the two we're on, without the toggle looking stuck pressed.
+        # Not a toggle, which would look stuck pressed on the dashboard.
         button = Gtk.Button(action_name="win.dashboard",
                             child=overlay,
                             tooltip_text="Dashboard (F4)")
@@ -395,15 +331,9 @@ class Window(Gtk.ApplicationWindow):
                             tooltip_text="Commit (Ctrl+Enter)")
         header.pack_start(commit)
         self._task_widgets.append(commit)
-        # The repository and the branch at the left end, styled like a
-        # window title and subtitle, but left-aligned and ellipsized to
-        # fit whatever space is left over by the rest of the header bar.
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         box.add_css_class("slop-header-title")
-        # Center the two lines together, the box being given the full
-        # height of the header bar, which they don't fill.
         box.set_valign(Gtk.Align.CENTER)
-        # Claim all the width that the rest of the header bar leaves.
         box.set_hexpand(True)
         self._title_label = Gtk.Label(xalign=0)
         self._title_label.add_css_class("title")
@@ -413,17 +343,11 @@ class Window(Gtk.ApplicationWindow):
             # The header bar keeps the stack switcher centered only as
             # long as what's packed at the start fits left of center, so
             # ask for no width at all. Expanding above still gives these
-            # all the space that is actually free, ellipsizing the rest.
+            # all the space that is actually free.
             label.set_max_width_chars(1)
             box.append(label)
         header.pack_start(box)
         self._task_widgets.append(box)
-        # The switcher takes the title's place while a task is shown,
-        # the dashboard leaving it empty for the header bar to fall back
-        # on the window title, which it centers. Resuming an agent rides
-        # along with it rather than sitting at the end of the header bar
-        # with the rest: what it does happens in a terminal, so it
-        # belongs beside the tabs that lead to them.
         self._header = header
         self._switcher = Gtk.StackSwitcher()
         self._title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -441,10 +365,6 @@ class Window(Gtk.ApplicationWindow):
         header.pack_end(Gtk.MenuButton(icon_name="open-menu-symbolic",
                                        menu_model=menu,
                                        primary=True))
-        # Packed after the menu, which puts it left of the menu, the
-        # header bar filling its end from the right inwards. The three
-        # comment buttons are joined into one group, they being the ones
-        # that belong together and act on the comment sidebar.
         comments = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         comments.append(Gtk.Button(action_name="win.add-comment",
                                    icon_name="chat-message-new-symbolic",
@@ -467,14 +387,9 @@ class Window(Gtk.ApplicationWindow):
     def _sync_header(self):
         """Update the header bar and the actions for the task shown."""
         page = self._page
-        # Without a task there is nothing to commit, run or comment on,
-        # and no stack for the switcher to switch, so leave the header
-        # bar with nothing but the dashboard button, the title and the
-        # menu.
         for widget in self._task_widgets:
             widget.set_visible(page is not None)
-        # Empty on the dashboard, which leaves the header bar to center
-        # the window title in the switcher's place.
+        # None shows the window title in its place.
         self._header.set_title_widget(self._title_box if page else None)
         self.lookup_action("dashboard").set_state(
             GLib.Variant.new_boolean(page is None))
@@ -483,8 +398,7 @@ class Window(Gtk.ApplicationWindow):
                      "resume-agent", "run", "send-comments", "switch-tab",
                      "wrap-lines"):
             self.lookup_action(name).set_enabled(page is not None)
-        # Allow only the file operations that apply to the file
-        # selected. Staged changes are reverted by unstaging them first.
+        # Staged changes are reverted by unstaging them first.
         section = page.get_selected_section() if page else None
         self.lookup_action("stage").set_enabled(section in ("unstaged", "untracked"))
         self.lookup_action("unstage").set_enabled(section == "staged")
@@ -496,24 +410,16 @@ class Window(Gtk.ApplicationWindow):
         if page is None: return
         self._title_label.set_label(page.repository.root.name)
         self._branch_label.set_label(page.branch or "")
-        # The switcher is the window's, the stack the task's, so point
-        # the one at the other for as long as this task is shown.
         self._switcher.set_stack(page.stack)
-        # The switcher builds a button per page in the order of the
-        # stack, but hands out no reference to them, so walk its
-        # children instead: [ Diff | Terminal | 2 | 3 ].
+        # The switcher hands out no reference to its buttons, so walk
+        # its children: [ Diff | Terminal | 2 | 3 ].
         for button in list(self._switcher)[2:]:
             button.add_css_class("slop-narrow-tab")
-        # The wrap toggle is per task, so take the state from the task
-        # shown. Set it without going through the handler, which would
-        # write the config right back.
+        # Not through the handler, which would write the config back.
         self.lookup_action("wrap-lines").set_state(
             GLib.Variant.new_boolean(page.wrap_lines))
 
     def _sync_attention(self):
-        # A terminal that rang is marked on its tab, but only the tabs
-        # of the task shown are in sight, so mark the way to the rest:
-        # the dashboard, where the card says which task it was.
         self._attention_dot.set_visible(
             any(x.get_attention() for x in self._tasks))
 
@@ -521,12 +427,9 @@ class Window(Gtk.ApplicationWindow):
         if state.get_boolean():
             return self._show_dashboard()
         if not self._tasks:
-            # Nothing to zoom in to, so stay where we are, but take the
-            # press for what it can still mean on a dashboard that never
-            # goes away: ask GitHub again, as turning to it would.
+            # Nothing to zoom in to, so ask GitHub again, as turning to
+            # the dashboard would.
             return self._dashboard.refresh_pull_requests()
-        # Back to the task last shown, or to the latest opened if that
-        # one has since been closed.
         self._show_task(self._last_task if self._last_task in self._tasks
                         else self._tasks[-1])
 

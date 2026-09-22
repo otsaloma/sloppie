@@ -33,16 +33,11 @@ class TaskRow(Gtk.ListBoxRow):
 
     """One repository in the dashboard, open as a task or only recent."""
 
-    # A tall 'rich-list' row, which is the welcome screen's list of
-    # recent repositories broken up into a row per repository, a
-    # repository and the subtasks forked from it sharing a frame.
-
     def __init__(self, path, task, parent=None):
         GObject.GObject.__init__(self)
         self.path = path
         self.task = task
-        # The repository this was forked from, which makes it a subtask
-        # and decides which buttons it gets.
+        # The repository forked from, set only for a subtask.
         self.parent = parent
         self._comments = None
         self._dismiss = None
@@ -52,47 +47,34 @@ class TaskRow(Gtk.ListBoxRow):
         self._pull_request = None
         self._running = None
         self._title = None
-        # What the group packs beside the row, outside the frame, see
-        # TaskGroup. Filled in below, but held by the row itself, the
-        # tag being one more thing the row has to say for itself.
+        # Packed by TaskGroup beside the row, outside the frame.
         self.tag = Gtk.Box()
         if task is None:
-            # Not open, hence nothing to tell about it beyond where it
-            # is, and dimmed to set it apart from the ones that are.
             self.add_css_class("slop-task-recent")
         self._init_widgets()
         self.update()
 
     def _init_widgets(self):
-        # A grid, so that the command lines up under the name and the
-        # diff under the path, with the buttons spanning both rows.
         grid = Gtk.Grid(column_spacing=9, row_spacing=9)
         grid.set_margin_start(9)
         if self.task:
-            # With one row only, the buttons are the tallest thing in it
-            # and their own padding gives the name the same air that
-            # these margins would, only twice over.
+            # With one row only, the padding of the buttons suffices.
             grid.set_margin_bottom(9)
             grid.set_margin_top(9)
-        # What says which task this is: a repository and the branch it
-        # has checked out, or, for a subtask, its branch alone.
         self._title = Gtk.Label(label=self._get_title(), xalign=0)
         self._title.add_css_class("slop-task-name")
         grid.attach(self._title, 0, 0, 1, 1)
-        # Long paths give way rather than widen the whole window.
         directory = Gtk.Label(label=self._get_directory(), xalign=1, hexpand=True)
         directory.add_css_class("monospace")
         directory.add_css_class("slop-task-path")
         directory.set_ellipsize(Pango.EllipsizeMode.START)
+        # Long paths give way rather than widen the whole window.
         directory.set_max_width_chars(1)
         grid.attach(directory, 1, 0, 1, 1)
         self._init_widgets_buttons(grid)
         if self.task:
             self._init_widgets_status(grid)
         self.set_child(grid)
-        # Keep GitHub state outside the card of local state. TaskGroup
-        # keeps the tag as tall as its row, so the link stays centered
-        # without margins tied to the theme or font.
         self._pull_request = Gtk.LinkButton(uri="",
                                             valign=Gtk.Align.CENTER,
                                             visible=False)
@@ -102,20 +84,14 @@ class TaskRow(Gtk.ListBoxRow):
         self.tag.append(self._pull_request)
 
     def _init_widgets_buttons(self, grid):
-        # Packed against the end of the row, so that a row with only the
-        # one button has it where the last of two is, rather than each
-        # button in a column of its own with gaps where a row has none.
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                       halign=Gtk.Align.END,
                       valign=Gtk.Align.CENTER)
 
         box.add_css_class("slop-task-buttons")
 
-        # First, what can be done with the repository: only one of one's
-        # own is forked, a subtask being forked off one already and not
-        # forked further itself; and trashing takes the directory with
-        # it, hence subtasks alone, those being the copies that Sloppie
-        # made in the first place. Every row has the one or the other.
+        # Subtasks are not forked further, and only subtasks, the copies
+        # that Sloppie made, are trashed.
         if self.parent is None:
             box.append(self._new_button("media-playlist-shuffle-symbolic",
                                         "Add Subtask",
@@ -124,10 +100,8 @@ class TaskRow(Gtk.ListBoxRow):
             box.append(self._new_button("user-trash-symbolic",
                                         "Trash",
                                         self._on_trash_clicked))
-        # Last, at the very end of the row: closing an open task, but
-        # clearing one that is only recent, there being nothing left to
-        # close. A subtask has no clearing, only trashing: clearing it
-        # would leave the copy on disk with nothing pointing at it.
+        # Clearing a subtask would leave the copy on disk with nothing
+        # pointing at it.
         if self.task is not None:
             self._dismiss = self._new_button("window-close-symbolic",
                                              "Close",
@@ -138,9 +112,6 @@ class TaskRow(Gtk.ListBoxRow):
                                              self._on_clear_clicked)
         if self._dismiss is not None:
             box.append(self._dismiss)
-        # Only recent means only the one row to span: where the
-        # repository is, there being no state to tell about a task that
-        # isn't open.
         grid.attach(box, 2, 0, 1, 2 if self.task else 1)
 
     def _new_button(self, icon_name, tooltip_text, callback):
@@ -154,16 +125,11 @@ class TaskRow(Gtk.ListBoxRow):
         return button
 
     def _init_widgets_status(self, grid):
-        # What is running and for how long as one, the time telling a
-        # busy agent from a stuck one. One label, so that the status
-        # boxes the two of them together; aligned to the start, so that
-        # the box is around the text and not the whole column.
+        # Aligned to the start, so that the status box is around the
+        # text and not the whole column.
         self._running = Gtk.Label(halign=Gtk.Align.START, xalign=0)
         self._running.add_css_class("monospace")
         grid.attach(self._running, 0, 1, 1, 1)
-        # What waits to be dealt with: the comments written and not yet
-        # sent, and the diff as two labels, so that each half can have
-        # the color that it has in the file sidebar as well.
         pending = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                           spacing=6,
                           halign=Gtk.Align.END)
@@ -180,8 +146,6 @@ class TaskRow(Gtk.ListBoxRow):
         self._comments.add_css_class("monospace")
         self._comments.add_css_class("slop-task-comments")
         pending.append(self._comments)
-        # Stands in for all three when there is none of them to show,
-        # so that the row is never blank on one side.
         self._nothing = Gtk.Label(label=NOTHING, visible=False)
         self._nothing.add_css_class("monospace")
         self._nothing.add_css_class("slop-task-none")
@@ -198,39 +162,28 @@ class TaskRow(Gtk.ListBoxRow):
     def _get_title(self):
         """Return the name to show for the repository or subtask."""
         branch = self.task.branch if self.task else None
-        # One subtask is one branch, so its directory name and its branch
-        # say the same thing twice: 'project.feature-blah / feature-blah'.
-        # The branch alone then, which for a subtask not open is the
-        # directory name with the name of the repository it was forked
-        # from taken off the front.
+        # A subtask's directory name repeats its branch, so the branch
+        # alone, for a subtask not open taken from the directory name.
         if self.parent is not None:
             prefix = f"{self.parent.name}."
             return branch or (self.path.name[len(prefix):]
                               if self.path.name.startswith(prefix) else
                               self.path.name)
-        # A repository has any number of branches, so name both, with
-        # thin spaces around the slash, the two being the one name.
         if branch is None: return self.path.name
         return f"{self.path.name}\u2009/\u2009{branch}"
 
     def update(self):
         """Update the card to match the state of the task."""
-        # Recent repositories have no task status widgets to update.
         if self.task is None: return
         self._title.set_label(self._get_title())
-        # NOTHING rather than a blank where there is nothing to say, so
-        # that a card of an open task always has both of its rows.
         running = " ".join(x for x in (self.task.command, self.task.elapsed) if x)
         self._running.set_label(running or NOTHING)
-        # Nothing running is no status to box, leaving the dash dimmed
-        # like the rest of what a card has nothing to say about.
         status = f"slop-task-{self.task.status}" if running else "slop-task-none"
         for css in ("slop-task-none", "slop-task-waiting", "slop-task-working"):
             self._running.remove_css_class(css)
         self._running.add_css_class(status)
-        # Hide what has no number rather than blank it: a blank label
-        # still takes its share of the spacing between them, and the
-        # comments have a box drawn around them to show empty.
+        # Hide rather than blank, as a blank still takes spacing, and the
+        # comments have a box drawn around them.
         for label, value, text in ((self._comments, self.task.comments, "{}"),
                                    (self._lines_added, self.task.lines_added, "+{}"),
                                    (self._lines_removed, self.task.lines_removed, "−{}")):
@@ -242,9 +195,6 @@ class TaskRow(Gtk.ListBoxRow):
 
     def set_pull_request(self, index):
         """Show what became of this branch, per the pull requests `index`."""
-        # Nothing at all until GitHub has been asked and has something
-        # to tell about this branch, which is a moment after the
-        # dashboard is shown, and never for a branch never pushed.
         pull_request = self._find_pull_request(index)
         if pull_request is not None:
             self._pull_request.set_label(pull_request[0])
@@ -252,10 +202,8 @@ class TaskRow(Gtk.ListBoxRow):
         self._pull_request.set_visible(pull_request is not None)
 
     def _find_pull_request(self, index):
-        # An open task has its branch from git. One that is not open has
-        # none to give, only the directory it is in, which for a subtask
-        # is the branch with the slashes taken out and for a repository
-        # of one's own is nothing that matches any branch at all.
+        # Without a task there is no branch, only a subtask's directory
+        # name to match against.
         if self.task is not None:
             return index.get(self.task.branch)
         root = self.parent or self.path
@@ -266,16 +214,12 @@ class TaskRow(Gtk.ListBoxRow):
         self.get_ancestor(Dashboard).emit("close-task", self.path)
 
     def _on_clear_clicked(self, button):
-        # Only recent, so there is no task for the window to close, only
-        # a row and a line in the list of recent ones to drop.
         self.get_ancestor(Dashboard).clear(self)
 
     def _on_add_subtask_clicked(self, button):
         popover = SubtaskPopover(self.path)
         popover.set_parent(button)
-        # A popover set on a widget is a child of it and stays one, so
-        # take it off again once dismissed, or every click would leave
-        # another of them hanging off the button.
+        # Or every click would leave another popover on the button.
         popover.connect("closed", lambda popover: popover.unparent())
         popover.connect("forked", self._on_subtask_forked)
         popover.popup()
@@ -290,8 +234,6 @@ class SubtaskPopover(Gtk.Popover):
 
     """Where the branch of a subtask to be forked is typed."""
 
-    # The argument of "forked" is the branch name, checked here and so
-    # good as far as the repository can say before the copy is begun.
     __gsignals__ = {
         "forked": (GObject.SignalFlags.RUN_LAST, None, (str,)),
     }
@@ -302,20 +244,15 @@ class SubtaskPopover(Gtk.Popover):
         self._entry = None
         self._error = None
         self._init_widgets()
-        # A popover focuses its first focusable child, but only once it
-        # has one to focus, which is after it has been shown.
+        # Focus can only be grabbed once shown.
         self.connect("map", lambda *args: self._entry.grab_focus())
 
     def _init_widgets(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=9)
-        # Monospace, a branch name being of a kind with what is typed at
-        # a prompt, and wide enough for one of some length.
         self._entry = Gtk.Entry(placeholder_text="branch-name", width_chars=48)
         self._entry.add_css_class("monospace")
         self._entry.connect("activate", self._on_activate)
         box.append(self._entry)
-        # Says why Enter did nothing, and takes up no room at all until
-        # there is something for it to say.
         self._error = Gtk.Label(xalign=0,
                                 visible=False,
                                 wrap=True,
@@ -335,8 +272,6 @@ class SubtaskPopover(Gtk.Popover):
             repository = slop.Repository(self.path)
         except Exception as error:
             return self._show_error(str(error))
-        # Caught here rather than after a minute of copying, the name
-        # being the one thing that can be told to be wrong beforehand.
         if (error := subtask.get_error(repository, branch)) is not None:
             return self._show_error(error)
         self.popdown()
@@ -353,20 +288,14 @@ class PendingRow(Gtk.ListBoxRow):
     def __init__(self, path, branch):
         GObject.GObject.__init__(self)
         self.path = path
-        # Nothing to put in it, a copy having no branch pushed anywhere
-        # yet, but the group packs one beside every row all the same.
+        # Empty, but packed by TaskGroup beside every row.
         self.tag = Gtk.Box()
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
         box.set_margin_start(9)
         box.append(Gtk.Spinner(spinning=True, valign=Gtk.Align.CENTER))
-        # Named as it will be once it is a subtask, so that the row
-        # merely loses its spinner rather than changes into something
-        # else once the copy is done.
         name = Gtk.Label(label=branch, xalign=0)
         name.add_css_class("slop-task-name")
         box.append(name)
-        # A copy of a repository with a virtualenv or a node_modules in
-        # it is gigabytes and takes its time, so say what the wait is.
         status = Gtk.Label(label="Copying...", xalign=1, hexpand=True)
         status.add_css_class("monospace")
         status.add_css_class("slop-task-path")
@@ -374,12 +303,9 @@ class PendingRow(Gtk.ListBoxRow):
         self.set_child(box)
 
     def update(self):
-        # Nothing here changes until the copy is done, at which point
-        # the row is replaced by one of the subtask itself.
         pass
 
     def set_pull_request(self, index):
-        # A branch not yet made, let alone pushed, has none.
         pass
 
 class TaskGroup(Gtk.Box):
@@ -391,40 +317,26 @@ class TaskGroup(Gtk.Box):
                                  orientation=Gtk.Orientation.HORIZONTAL,
                                  spacing=9)
 
-        # The repository the group is of, which is the one asked about
-        # on behalf of every row in it, a subtask being the same
-        # repository to GitHub as the one it was forked from.
         self.root = root
-        # A blank as wide as the column of tags on the other side, so
-        # that the frames stay centered in the window and only the tags
-        # hang off to the right of them.
+        # As wide as the column of tags on the other side, so that the
+        # frames stay centered in the window.
         blank = Gtk.Box()
         tag_group.add_widget(blank)
         self.append(blank)
         frame = Gtk.Frame(hexpand=True)
         frame.add_css_class("slop-task-card")
-        # A line between the rows, which is what tells the repository
-        # and the subtasks forked from it apart within the one frame.
         self._listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE,
                                     show_separators=True)
 
-        # 'rich-list' gives the tall rows and the padding around them.
         self._listbox.add_css_class("rich-list")
         self._listbox.connect("row-activated", self._on_row_activated)
         frame.set_child(self._listbox)
-        # Clip the rows to the rounded corners of the frame, which they
-        # would otherwise square off when hovered.
+        # Or hovered rows would square off the rounded corners.
         frame.set_overflow(Gtk.Overflow.HIDDEN)
         self.append(frame)
-        # The tags of the rows, which belong outside the frame but level
-        # with the row each is about: a column of a box per row, every
-        # one of them kept the height of its row by a size group. No
-        # spacing between them, a separator being a border drawn within
-        # the row above it and not a gap between the two, so that any
-        # here would push the tags a pixel further down with every row.
-        # The column is the same width across all of the groups,
-        # tag_group being shared by them, so that the frames line up
-        # whether or not there is a tag beside them.
+        # Each tag is kept the height of its row by a size group. No
+        # spacing, as a separator is a border within the row above, not
+        # a gap between rows.
         self._tags = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         tag_group.add_widget(self._tags)
         for row in rows:
@@ -436,8 +348,6 @@ class TaskGroup(Gtk.Box):
         self.append(self._tags)
 
     def _on_row_activated(self, listbox, row):
-        # A subtask still being copied is no repository yet and so
-        # nothing that a task can be opened on.
         if not isinstance(row, TaskRow): return
         self.get_ancestor(Dashboard).emit("open-task", row.path)
 
@@ -464,8 +374,6 @@ class Dashboard(Gtk.Box):
 
     """The page of cards: the tasks open and the repositories recently opened."""
 
-    # The path of the repository is the identity of a task, the window
-    # holding the tasks themselves and doing the opening and closing.
     __gsignals__ = {
         "open-task": (GObject.SignalFlags.RUN_LAST, None, (object,)),
         "close-task": (GObject.SignalFlags.RUN_LAST, None, (object,)),
@@ -480,47 +388,32 @@ class Dashboard(Gtk.Box):
 
         self._box = None
         self._open_button = None
-        # Subtasks being copied, by the directory they are copied to,
-        # which is where they will be once there is anything there.
+        # Parent and branch of subtasks being copied, by the directory
+        # copied to.
         self._pending = {}
-        # What GitHub last said about each repository listed, and when
-        # it was last asked, both by the path of the repository. Kept
-        # across rebuilds of the cards, so that turning to the dashboard
-        # shows at once what it showed the last time.
+        # By repository path, kept across rebuilds of the cards.
         self._pull_requests = {}
         self._pull_requests_asked = {}
         self._tasks = []
         self._init_widgets()
         self._init_shortcuts()
-        # Asking GitHub means a request over the network, so ask only
-        # when there is someone to read the answer: on turning to the
-        # dashboard, and one request per repository, not one per card.
-        # Nothing is polled, a pull request opened or merged while the
-        # dashboard is up being seen on the next turn to it, or on the
-        # next press of F4 where there is no task to turn away to.
+        # Asked on turning to the dashboard, not polled.
         self.connect("map", lambda *args: self.refresh_pull_requests())
 
     def _init_widgets(self):
         self.set_halign(Gtk.Align.CENTER)
-        # Start from the top rather than the middle, so that the cards
-        # grow downwards from where they are instead of the whole lot
-        # shifting up and down as tasks come and go.
+        # Not centered vertically, or the cards would shift up and down
+        # as tasks come and go.
         self.set_valign(Gtk.Align.START)
         self.set_margin_bottom(48)
         self.set_margin_top(36)
-        # Only found once the icon has been installed, but that's fine,
-        # a missing icon just leaves an empty space above the button.
         self.append(Gtk.Image(icon_name="io.otsaloma.sloppie", pixel_size=128))
         self._open_button = Gtk.Button(label="_Open Repository", use_underline=True)
         self._open_button.add_css_class("suggested-action")
         self._open_button.set_halign(Gtk.Align.CENTER)
         self._open_button.connect("clicked", self._on_open_clicked)
         self.append(self._open_button)
-        # A card per repository, each its own frame, rather than one
-        # list of them all, the cards being separate things to act on.
         self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        # Keep the list from growing past the window with many
-        # repositories, but let a short list stay short.
         scroller = Gtk.ScrolledWindow()
         scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroller.set_propagate_natural_height(True)
@@ -528,13 +421,9 @@ class Dashboard(Gtk.Box):
         self.append(scroller)
 
     def _init_shortcuts(self):
-        # Alt+1 to Alt+9 open the first nine rows, counted from the top
-        # across the groups. Nothing says which row is which number:
-        # mnemonics would need one printed by every name, which is noise
-        # once one knows they are there and can count to nine. The scope
-        # hands the shortcuts to the window, so that they work wherever
-        # the focus is, but only while the dashboard is the mapped page
-        # of the stack, never while a task and its terminals are shown.
+        # Not mnemonics, which would need a number printed by every name.
+        # The managed scope hands these to the window, so that they work
+        # wherever the focus is, but only while the dashboard is mapped.
         shortcuts = Gtk.ShortcutController(scope=Gtk.ShortcutScope.MANAGED)
         for i in range(1, 10):
             shortcuts.add_shortcut(Gtk.Shortcut(
@@ -545,8 +434,6 @@ class Dashboard(Gtk.Box):
 
     def activate_row(self, number):
         """Activate the `number`th row, as though clicked."""
-        # A subtask still being copied is no row to open and no row to
-        # count either, the numbers being those of the tasks.
         rows = [row for group in self._box for row in group.get_rows()
                 if isinstance(row, TaskRow)]
 
@@ -587,13 +474,10 @@ class Dashboard(Gtk.Box):
         while group := self._box.get_first_child():
             self._box.remove(group)
         open_tasks = {x.repository.root: x for x in self._tasks}
-        # Most recent first, which is also the order the groups of the
-        # repositories not open are shown in.
         listed = recent.list_repositories()
         rank = {path: i for i, path in enumerate(listed)}
         paths = list(open_tasks) + [x for x in listed if x not in open_tasks]
-        # Made anew with the rows, a size group holding on to whatever
-        # is put in it, which would be every row ever shown.
+        # Made anew, a size group holding on to every widget ever added.
         tag_group = Gtk.SizeGroup(mode=Gtk.SizeGroupMode.HORIZONTAL)
         # A subtask whose parent has since been forgotten stands on its
         # own rather than vanish along with it.
@@ -603,35 +487,21 @@ class Dashboard(Gtk.Box):
         for path in paths:
             groups.setdefault(parents.get(path, path), []).append(path)
         for path in sorted(groups, key=lambda x: self._sort_key(x, groups, open_tasks, rank)):
-            # The repository itself first, then the subtasks forked from
-            # it, by name, which is the branch with the slashes taken out.
             members = sorted(groups[path],
                              key=lambda x: (x != path, x.name.casefold()))
             rows = [TaskRow(x, open_tasks.get(x), parents.get(x)) for x in members]
-            # Last in the group, a subtask still being copied having no
-            # repository to be told anything about and no place among
-            # the ones that have until it does.
             rows += [PendingRow(x, branch) for x, (parent, branch)
                      in self._pending.items() if parent == path]
             group = TaskGroup(rows, tag_group, path)
-            # Whatever GitHub said the last time round, the cards being
-            # rebuilt whenever a task is opened or closed and GitHub
-            # having said nothing new in the meantime.
             group.set_pull_requests(self._pull_requests.get(path, {}))
             self._box.append(group)
-        # A repository listed for the first time is asked about at once,
-        # but only if there is anyone looking at the dashboard, the next
-        # turn to it doing the asking otherwise.
         if self.get_mapped():
             self.refresh_pull_requests()
 
     def _sort_key(self, path, groups, open_tasks, rank):
         """Return the key that orders the group of `path` among the rest."""
-        # A group is open if any one of its rows is, an open subtask
-        # bringing along the repository it was forked from, closed or
-        # not. The open ones come first and stay put as they are worked
-        # on, hence by name; the rest are a history, hence most recent
-        # first, of whichever of their rows was opened last.
+        # Open groups first, by name so that they stay put as they are
+        # worked on; the rest most recent first.
         if any(x in open_tasks for x in groups[path]):
             return (0, path.name.casefold(), 0)
         return (1, "", min(rank.get(x, len(rank)) for x in groups[path]))
@@ -646,17 +516,14 @@ class Dashboard(Gtk.Box):
             if len(rows) == 1 and rows[0].task is None: continue
             asked = self._pull_requests_asked.get(group.root)
             if asked is not None and now - asked < 60: continue
-            # Recorded before the answer comes and whatever it says, so
-            # that a repository that is not on GitHub is asked about no
-            # more often than one that is.
+            # Recorded before the answer, so that failures are limited
+            # to once a minute too.
             self._pull_requests_asked[group.root] = now
             github.list_pull_requests(
                 group.root, lambda items, root=group.root:
                 self._on_pull_requests_listed(root, items))
 
     def _on_pull_requests_listed(self, root, items):
-        # Nothing learned, so leave the cards saying whatever they said
-        # rather than blank them, and try again at the next turn.
         if items is None: return
         self._pull_requests[root] = github.index_pull_requests(items)
         for group in self._box:
@@ -668,19 +535,15 @@ class Dashboard(Gtk.Box):
         recent.remove_repository(row.path)
         group = row.get_ancestor(TaskGroup)
         if group.remove(row):
-            # The last row gone takes the frame around it with it.
             self._box.remove(group)
 
     def update(self):
         """Update the cards to match the state of the tasks."""
-        # Update in place rather than rebuild, the cards changing as
-        # often as the tasks are polled and a rebuild taking away
-        # whatever the user was hovering over or had focused.
+        # In place, as a rebuild would lose hover and focus.
         for group in self._box:
             group.update()
 
     def focus(self):
-        # The first row, or the open button with no cards at all.
         if (group := self._box.get_first_child()) is not None:
             return group.get_rows()[0].grab_focus()
         self._open_button.grab_focus()

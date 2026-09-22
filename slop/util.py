@@ -37,10 +37,9 @@ error_dialog = None
 
 def confirm(parent, message, detail, label, destructive=False):
     """Return ``True`` if the user chooses `label`."""
-    # Either AlertDialog only has an asynchronous API, so run a nested
-    # main loop to be able to return the response to the caller. Both
-    # are told which response cancels, so that dismissing gives us that
-    # instead of an error.
+    # Both AlertDialogs are asynchronous only, hence the nested main
+    # loop. Both are told which response cancels, so that dismissing
+    # gives that instead of an error.
     loop = GLib.MainLoop()
     response = None
     def on_done(dialog, result):
@@ -48,9 +47,6 @@ def confirm(parent, message, detail, label, destructive=False):
         response = dialog.choose_finish(result)
         loop.quit()
     if Adw is not None:
-        # Everything asked here is about discarding something that git
-        # or the trash cannot always give back, hence the destructive
-        # appearance, which GTK's own dialog has no way to give.
         dialog = Adw.AlertDialog(heading=message, body=detail)
         dialog.add_response("cancel", "Cancel")
         dialog.add_response("confirm", label)
@@ -78,26 +74,19 @@ def read_json(path, default):
         if not path.exists(): return default
         data = json.loads(path.read_text("utf-8"))
         if type(data) is not type(default):
-            # A file of the wrong shape is no better than no file, a
-            # list where a dict is expected only failing later, on the
-            # first use the caller makes of what it got.
             raise ValueError(f"{path}: not a JSON {type(default).__name__}")
         return data
     except Exception as error:
-        # None of what we keep as JSON is essential, so rather fall back
-        # on the default than fail to do the thing the file was read for.
+        # Nothing we keep as JSON is essential.
         print(f"sloppie: {error}", file=sys.stderr)
         return default
 
 def show_error(parent, message, error):
     """Show `error` under `message` in a dialog on top of `parent`."""
     global error_dialog
-    # Errors can arrive in bursts, e.g. from reloading the repository,
-    # which would leave dialogs stacked on top of one another, each one
-    # hiding the ones below. The first says enough, skip the rest.
+    # Errors can arrive in bursts, e.g. from reloading the repository.
+    # The first says enough, skip the rest.
     if error_dialog is not None and error_dialog.get_visible(): return
-    # Print as well, so that a whole session's errors can be reviewed
-    # when running sloppie from a terminal.
     print(f"sloppie: {error}", file=sys.stderr)
     dialog = Gtk.Window(modal=True, title="Error", transient_for=parent)
     header = Gtk.HeaderBar()
@@ -114,10 +103,7 @@ def show_error(parent, message, error):
     summary = Gtk.Label(label=message, xalign=0, wrap=True)
     summary.add_css_class("heading")
     box.append(summary)
-    # The output of git is written for a terminal: monospace, so that
-    # it lines up as intended, and selectable, so that it can be taken
-    # elsewhere. Width is capped by the label, height by the scroller,
-    # both of which the dialog shrinks below for a short error.
+    # The output of git is written for a terminal, hence monospace.
     output = Gtk.Label(label=str(error),
                        xalign=0,
                        yalign=0,
@@ -141,8 +127,7 @@ def show_error(parent, message, error):
         trigger=Gtk.ShortcutTrigger.parse_string("Escape"),
         action=Gtk.NamedAction.new("window.close")))
     dialog.add_controller(shortcuts)
-    # Dismissing is the only thing to do here, so start with the close
-    # button focused rather than the selectable label.
+    # The selectable label would take focus otherwise.
     dialog.set_focus(close)
     error_dialog = dialog
     dialog.present()
@@ -153,6 +138,4 @@ def write_json(data, path):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", "utf-8")
     except Exception as error:
-        # Whatever the data was written for can go on without it,
-        # only nothing of it will survive the session.
         print(f"sloppie: {error}", file=sys.stderr)

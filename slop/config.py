@@ -17,9 +17,8 @@
 
 from slop import util
 
-# Every configuration item there is and the value it has when not set,
-# so that the file offered for editing can hold them all, there being no
-# user interface for any of them beyond that file.
+# All items, so that the file offered for editing, the only user
+# interface there is, can list them all.
 DEFAULTS = {
     "run-command": None,
     "setup-command": None,
@@ -39,16 +38,12 @@ class Config:
 
     def write_item(self, key, value):
         """Write `value` as the value of `key`."""
-        # Read and write the whole file, it being a handful of items
-        # that all go together, written one at a time as they change.
         config = util.read_json(self.path, {})
         config[key] = value
         util.write_json(config, self.path)
 
     def write_as_full(self):
         """Write the file with the default value of every item not set."""
-        # Keys of a file no longer known here are kept, they being the
-        # user's to remove and not worth losing to a version of sloppie
-        # that happens to predate one of them.
+        # Keep unknown keys, which a newer version may have written.
         config = {**DEFAULTS, **util.read_json(self.path, {})}
         util.write_json(config, self.path)

@@ -54,18 +54,11 @@ we want this embedded VTE to work as similar as possible to Ptyxis.
 ## GTK Documentation
 
 Documentation for GTK and associated libraries is available as GIR files
-under `/usr/share/gir-1.0`. Grep those for any symbols you need.
-
-- `/usr/share/gir-1.0/Gdk-4.0.gir`
-- `/usr/share/gir-1.0/Gio-2.0.gir`
-- `/usr/share/gir-1.0/GLibUnix-2.0.gir`
-- `/usr/share/gir-1.0/GObject-2.0.gir`
-- `/usr/share/gir-1.0/Gtk-4.0.gir` etc.
-
-Make sure you can access that GIR documentation; abort if not. Never
-guess how the API works, always check from the documentation. Keep in
-mind that we use Python and some of the documentation has been written
-for C. You'll need adapt what you see there, for example:
+under `/usr/share/gir-1.0`. Grep those for any symbols you need. Make
+sure you can access that GIR documentation; abort if not. Never guess
+how the API works, always check from the documentation. Keep in mind
+that we use Python and some of the documentation has been written for C.
+You'll need adapt what you see there, for example:
 
 - `GTK_ALIGN_CENTER` → `Gtk.Align.CENTER`
 - `gtk_box_new(...)` → `Gtk.Box(...)`
@@ -74,46 +67,36 @@ for C. You'll need adapt what you see there, for example:
 ## Validation, Testing
 
 After making changes to Python code, always at minimum run `flake8 ...`
-and `pytest ...` against all changed files. After making changes to
-GtkBuilder `.ui` files, run `gtk4-builder-tool validate ...`. After
-bigger changes, or if you suspect your changes affect other modules, use
-`make check` and `make test` to run the full validation and test suites.
+and `pytest ...` against all changed files. After bigger changes, or if
+you suspect your changes affect other modules, use `make check` and
+`make test` to run the full validation and test suites.
 
 ## Running the GUI
 
-You can run the GUI as `timeout --signal=TERM 5 bin/sloppie PATH` so it
-self-terminates (exit 124) instead of blocking; the console output is
-then captured for inspection. `PATH` is any path in a git repository;
-initialize a scratch repository if you need particular changes to look
-at, including an empty one for the placeholder states.
+Run a brief GUI check with diagnostics enabled: `G_ENABLE_DIAGNOSTIC=1
+timeout 5 bin/sloppie PATH 2>&1`. Exit 124 is expected on timeout. Use
+`pytest -s` to expose GTK/GLib warnings in tests, and
+`G_DEBUG=fatal-warnings` to stop on warnings when debugging.
 
-To see all warnings, set `G_ENABLE_DIAGNOSTIC=1` (forces GTK to emit
-deprecation warnings) and read stderr (`2>&1`). GTK/GLib warnings go
-through the GLib log system, not Python `warnings`, so `pytest` needs
-`-s` to show them. Use `G_DEBUG=fatal-warnings` to turn a warning into a
-fatal error (with traceback) when tracking down its source.
+`PATH` is any path in a git repository; initialize a scratch repository
+if you need particular changes to look at, including an empty one for
+the placeholder states.
+
+Standalone scripts must import slop from this checkout, not an installed
+copy. Set `PYTHONPATH` or `sys.path` accordingly; verify `slop.__file__`
+if unsure.
 
 ## Screenshots
 
-Screenshot tools that grab the screen, such as `grim` or `import`, are
-not available, but the window can render itself to PNG. Run a standalone
-script that creates `slop.Application()` and connects to "open" — after
-the application's own handler, so that `app.get_windows()[0]` is there —
-then in a `GLib.timeout_add` callback (~1500 ms) render the window to
-PNG and quit the application. Run it with `app.run(["sloppie",
-str(path)])` under `dbus-run-session` so it gets its own instance rather
-than forwarding to a running Sloppie:
+For unattended screenshots, render the app's own widgets to PNG using
+`Gtk.WidgetPaintable`, `Gtk.Snapshot` and the widget's native renderer
+(`render_texture`, then `save_to_png`). This avoids Wayland screenshot
+permissions.
 
-```python
-paintable = Gtk.WidgetPaintable(widget=window)
-snapshot = Gtk.Snapshot()
-paintable.snapshot(snapshot, paintable.get_intrinsic_width(), paintable.get_intrinsic_height())
-texture = window.get_native().get_renderer().render_texture(snapshot.to_node())
-texture.save_to_png(path)
-```
+Use a standalone script running the app and its GTK main loop; capture
+after the target window is visible and has rendered. Capture dialogs
+separately.
 
-This captures the window content, including the header bar, regardless
-of the Wayland compositor. Note that a standalone script doesn't get the
-`sys.path` manipulation that `bin/sloppie` does, so add the source repo
-to `sys.path` before importing `slop`. The same recipe works for
-measuring widget allocations, e.g. to check the size of a sidebar.
+Run under `dbus-run-session` so it gets its own instance rather than
+forwarding to a running Sloppie. The same recipe works for measuring
+widget allocations, e.g. to check the size of a sidebar.

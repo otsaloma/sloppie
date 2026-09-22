@@ -25,8 +25,7 @@ from slop import recent
 class TestRecent(slop.test.TestCase):
 
     def setup_method(self, method):
-        # The source repository, the scratch ones of the other tests
-        # living under /tmp, which is deliberately not recorded.
+        # Not a scratch repository, those under /tmp are not recorded.
         self.root = Path(__file__).parents[2]
         recent.add_repository(self.root)
 

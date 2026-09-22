@@ -41,8 +41,7 @@ class TestWindow(slop.test.TestCase):
         assert self.window.get_title() == f"{self.root.name} — Sloppie"
 
     def test_closing_the_task_shown_returns_to_the_dashboard(self):
-        # Nothing runs in the terminals of a window never shown, so this
-        # is the path that closes without asking anything.
+        # A window never shown has no shells, so nothing is asked.
         assert not self.window._page.is_running()
         self.window.lookup_action("close-task").activate(None)
         assert self.window._page is None
@@ -55,7 +54,7 @@ class TestWindow(slop.test.TestCase):
 
     def test_quitting_asks_nothing_without_tasks(self):
         self.window.close_task(self.root)
-        # False lets the close go ahead, no question asked.
+        # False lets the close go ahead.
         assert self.window._on_close_request(self.window) is False
 
     def test_a_change_is_selected(self):
@@ -83,9 +82,7 @@ class TestWindow(slop.test.TestCase):
             sidebar._selection.set_selected(i)
             for j, line in enumerate(view._lines):
                 if line.new is None: continue
-                # Column one is the first character of the code, which
-                # follows the diff marker and the space after it, both
-                # of which the cursor reports as column one too.
+                # The marker and the space after it map to column one.
                 for offset in (1, 2):
                     buffer.place_cursor(buffer.get_iter_at_line_offset(j, offset)[1])
                     assert view.get_position() == (line.new, 1)

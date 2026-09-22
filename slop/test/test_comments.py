@@ -24,9 +24,8 @@ from slop.comments import Comment
 class TestCommentSidebar(slop.test.TestCase):
 
     def setup_method(self, method):
-        # Two sidebars on the one file, which is what a repository and a
-        # subtask forked from it are: the subtask's .git/sloppie is a
-        # symlink to the repository's, so both write the same comments.
+        # Two sidebars on the one file, as a repository and a subtask
+        # forked from it are.
         self.repository = slop.Repository(slop.test.new_repository())
         self.mine = slop.CommentSidebar(self.repository)
         self.mine.set_branch("master")
@@ -46,8 +45,6 @@ class TestCommentSidebar(slop.test.TestCase):
     def test_deleting_keeps_what_the_other_wrote(self):
         comment = self.mine.add_comment("mine")
         self.theirs.add_comment("theirs")
-        # 'mine' has not seen the other comment, and should not take it
-        # down along with its own.
         self.mine._remove([comment.uid])
         assert [x["text"] for x in self._read()] == ["theirs"]
 
@@ -62,8 +59,6 @@ class TestCommentSidebar(slop.test.TestCase):
         self.mine._modify([comment.uid], sent=True)
         self.theirs.add_comment("theirs")
         self.mine.delete_sent_comments()
-        # Named one by one rather than by keeping the rest, so that a
-        # comment never shown here is not deleted along with them.
         assert [x["text"] for x in self._read()] == ["theirs"]
 
     def test_only_the_current_branch_is_counted(self):
@@ -78,14 +73,13 @@ class TestCommentSidebar(slop.test.TestCase):
         assert slop.CommentSidebar(self.repository)._read()[0].uid == comment.uid
 
     def test_a_comment_written_before_uids_gets_one(self):
-        # The file as older versions left it, with no uid on anything.
+        # As written by older versions.
         path = self.repository.git_common_dir / "sloppie" / "comments.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps([{"text": "old", "branch": "master"}]), "utf-8")
         sidebar = slop.CommentSidebar(self.repository)
         comment = sidebar._read()[0]
         assert comment.uid
-        # And keeps it once written back, rather than a new one each time.
         sidebar._modify([comment.uid], text="new")
         assert self._read()[0]["uid"] == comment.uid
         assert self._read()[0]["text"] == "new"

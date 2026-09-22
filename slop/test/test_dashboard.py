@@ -29,16 +29,11 @@ from slop import recent
 class TestDashboard(slop.test.TestCase):
 
     def setup_method(self, method):
-        # Start from an empty list, the file being shared by the whole
-        # run, so that the rows are the ones the test itself puts there
-        # and not those left behind by the tests before it.
+        # The file is shared by the whole run.
         recent.PATH.unlink(missing_ok=True)
-        # The source repository, the scratch ones of the other tests
-        # living under /tmp, which is deliberately not recorded.
+        # Not a scratch repository, those under /tmp are not recorded.
         self.root = Path(__file__).parents[2]
         recent.add_repository(self.root)
-        # Without a repository the window starts on the dashboard, which
-        # lists the recently opened ones, the one just added at the top.
         self.window = slop.Window()
 
     def teardown_method(self, method):
@@ -87,9 +82,6 @@ class TestDashboard(slop.test.TestCase):
     def test_a_subtask_is_grouped_under_its_parent(self):
         path = self._record_subtask(self.root)
         self.window._update_dashboard()
-        # Both rows of the one group, the repository first and the
-        # subtask under it, and only the subtask knowing where it came
-        # from, which is what gives it a trash button in place of a fork.
         assert [x.path for x in self._get_group(0)] == [self.root, path]
         assert self._get_row(0).parent is None
         assert self._get_row(1).parent == self.root
@@ -97,7 +89,6 @@ class TestDashboard(slop.test.TestCase):
     def test_a_subtask_of_a_forgotten_parent_stands_on_its_own(self):
         path = self._record_subtask(Path("/nonexistent/repository"))
         self.window._update_dashboard()
-        # A group of its own, rather than gone along with the parent.
         assert len(list(self.window._dashboard._box)) == 2
         assert [x.path for x in self._get_group(1)] == [path]
         assert self._get_row(1).parent is None
@@ -108,9 +99,8 @@ class TestDashboard(slop.test.TestCase):
         self.window.open_task(other)
         self.window.open_task(path)
         self.window._show_dashboard()
-        # The group is open because the subtask is, so it sorts among
-        # the open ones by the name of the repository it was forked
-        # from, ahead of the scratch repository opened before it.
+        # Open by way of the subtask, the group sorts by the name of the
+        # repository, ahead of the scratch repository opened before it.
         assert [x.path for x in self._get_group(0)] == [self.root, path]
         assert self._get_row(0).task is None
         assert self._get_row(1).task is not None
@@ -121,8 +111,6 @@ class TestDashboard(slop.test.TestCase):
         popover.connect("forked", lambda popover, branch: forked.append(branch))
         popover._entry.set_text("  feature/new  ")
         popover._entry.emit("activate")
-        # Trimmed, the spaces being no part of what was meant and not
-        # allowed in a branch name anyway.
         assert forked == ["feature/new"]
 
     def test_an_invalid_branch_says_why(self):
@@ -131,8 +119,6 @@ class TestDashboard(slop.test.TestCase):
         popover.connect("forked", lambda popover, branch: forked.append(branch))
         popover._entry.set_text("feature..new")
         popover._entry.emit("activate")
-        # Nothing forked, and the popover left open to say why, rather
-        # than a minute of copying spent before finding out.
         assert not forked
         assert popover._error.get_visible()
         assert "not a valid" in popover._error.get_label()
@@ -141,7 +127,6 @@ class TestDashboard(slop.test.TestCase):
         path = self.root.with_name(f"{self.root.name}.wip")
         self.window._dashboard.add_pending(path, self.root, "wip")
         assert [x.path for x in self._get_group(0)] == [self.root, path]
-        # Not a task and not a repository yet, so nothing to open.
         row = self._get_row(1)
         assert isinstance(row, slop.dashboard.PendingRow)
         row.get_parent().emit("row-activated", row)
@@ -164,8 +149,6 @@ class TestDashboard(slop.test.TestCase):
         self.window.open_task(path)
         with self._trash_to(shutil.rmtree):
             self.window.trash_task(path)
-        # Closed before the directory went, so that the shells running
-        # there were hung up rather than left where it used to be.
         assert not self.window._tasks
         assert self.window._page is None
 
@@ -176,8 +159,6 @@ class TestDashboard(slop.test.TestCase):
             raise RuntimeError("Trashing on system internal mounts")
         with self._trash_to(refuse):
             self.window.trash_task(path)
-        # Still there to be looked at or trashed again, rather than
-        # dropped from the list while the directory is where it was.
         assert path.exists()
         assert path in recent.list_repositories()
         assert [x.path for x in self._get_group(0)] == [self.root, path]
@@ -185,9 +166,7 @@ class TestDashboard(slop.test.TestCase):
     @contextmanager
     def _trash_to(self, action):
         """Run the body with subtask.trash replaced by `action`."""
-        # Trashing itself cannot be tested: the scratch repositories are
-        # under /tmp, which GLib refuses to trash from, being a system
-        # internal mount. What the window does around it can be.
+        # GLib refuses to trash from /tmp, a system internal mount.
         trashed = []
         original = slop.subtask.trash
         slop.subtask.trash = lambda path: (trashed.append(str(path)), action(path))
@@ -198,8 +177,7 @@ class TestDashboard(slop.test.TestCase):
 
     def _record_subtask(self, parent):
         """Record a scratch repository as a subtask forked from `parent`."""
-        # Written straight to the file, add_repository deliberately not
-        # recording the scratch repositories under /tmp at all.
+        # Written directly, as add_repository skips /tmp.
         path = slop.test.new_repository()
         items = json.loads(recent.PATH.read_text("utf-8"))
         items.append({"path": str(path),
@@ -223,5 +201,4 @@ class TestDashboard(slop.test.TestCase):
 
     def _activate_row(self, index):
         row = self._get_row(index)
-        # The list box holding the row is the group's, not the row's.
         row.get_parent().emit("row-activated", row)

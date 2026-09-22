@@ -212,8 +212,7 @@ class TestRepository(slop.test.TestCase):
         assert [x.path for x in self.changes["untracked"]] == ["untracked.txt"]
 
     def test_untracked_counts_match_git(self):
-        # The line counts of untracked files are our own, git being able
-        # to diff only one file per run, so check them against it.
+        # The line counts of untracked files are our own.
         for name, data in (("trailing.txt", b"one\ntwo\n"),
                            ("no-trailing.txt", b"one\ntwo"),
                            ("empty.txt", b""),
@@ -256,21 +255,17 @@ class TestRepository(slop.test.TestCase):
         assert (change.added, change.removed) == (0, 2)
 
     def test_deletion_diff_is_all_removals(self):
-        # A deletion has hunks like any other change, so its header says
-        # nothing that the hunks don't and is dropped whole.
         change = self.get_change("staged", "deleted-staged.txt")
         lines = parse_diff(self.repository.get_diff(change))
         assert [x.kind for x in lines] == ["hunk", "removed", "removed"]
         assert [x.text for x in lines[1:]] == ["-gone", "-away"]
 
     def test_deletion_line_numbers(self):
-        # Nothing of a deleted file is left to number as new.
         change = self.get_change("unstaged", "deleted-unstaged.txt")
         lines = parse_diff(self.repository.get_diff(change))
         assert [(x.old, x.new) for x in lines[1:]] == [(1, None), (2, None)]
 
     def test_stage_deletion(self):
-        # 'git add' of a path that is gone stages its removal.
         self.repository.stage(self.get_change("unstaged", "deleted-unstaged.txt"))
         changes = self.repository.list_changes()
         assert "deleted-unstaged.txt" not in [x.path for x in changes["unstaged"]]
@@ -278,7 +273,6 @@ class TestRepository(slop.test.TestCase):
                 if x.path == "deleted-unstaged.txt"] == ["D"]
 
     def test_unstage_deletion(self):
-        # The file stays gone, only the deletion leaves the index.
         self.repository.unstage(self.get_change("staged", "deleted-staged.txt"))
         changes = self.repository.list_changes()
         assert "deleted-staged.txt" not in [x.path for x in changes["staged"]]
@@ -286,7 +280,6 @@ class TestRepository(slop.test.TestCase):
                 if x.path == "deleted-staged.txt"] == ["D"]
 
     def test_revert_deletion(self):
-        # Reverting a deletion is the one revert that brings a file back.
         self.repository.revert(self.get_change("unstaged", "deleted-unstaged.txt"))
         assert (self.root / "deleted-unstaged.txt").read_text() == "gone\ntoo\n"
         assert "deleted-unstaged.txt" not in [
@@ -345,7 +338,6 @@ class TestRepository(slop.test.TestCase):
         self.repository.commit("Add a thing")
         self.repository.commit("Add a thing, amended", amend=True)
         assert self.repository.get_last_message() == "Add a thing, amended"
-        # Amending rewrites the commit rather than adding one.
         assert self.repository._git("rev-list", "--count", "HEAD").strip() == "2"
 
     def test_commit_nothing_staged(self):
@@ -385,26 +377,20 @@ class TestConflict(slop.test.TestCase):
         assert not self.changes["untracked"]
 
     def test_unmerged_status(self):
-        # An unmerged file is listed as modified as well, which says
-        # nothing of the conflict and must not be what shows.
+        # git lists an unmerged file as modified too.
         assert self.get_change("staged", "conflict.txt").status == "U"
         assert self.get_change("unstaged", "conflict.txt").status == "U"
 
     def test_merged_file_is_staged(self):
-        # The half of the merge that went cleanly is staged as usual.
         assert self.get_change("staged", "added-by-other.txt").status == "A"
 
     def test_staged_diff_is_described(self):
-        # There is no diff to show of an unmerged file, so the reason
-        # has to be said in its place, rather than showing nothing.
         change = self.get_change("staged", "conflict.txt")
         lines = parse_diff(self.repository.get_diff(change))
         assert [x.text for x in lines] == ["Unmerged file with conflicts to resolve"]
 
     def test_unstaged_diff_shows_the_whole_file(self):
-        # A conflict comes as a combined diff, which has two columns of
-        # markers rather than one, and has the conflict markers among
-        # its lines. All of the file is to be there and nothing else.
+        # A combined diff, with two columns of markers.
         change = self.get_change("unstaged", "conflict.txt")
         lines = parse_diff(self.repository.get_diff(change))
         assert lines[0].kind == "hunk"
@@ -413,8 +399,6 @@ class TestConflict(slop.test.TestCase):
             self.root / "conflict.txt").read_text().rstrip("\n").split("\n")
 
     def test_commit_is_refused(self):
-        # git will not commit with a path left unmerged, which needs to
-        # arrive as an error rather than as a commit that never was.
         try:
             self.repository.commit("Merge other")
         except RuntimeError as error:
@@ -433,20 +417,15 @@ class TestGetFingerprint(slop.test.TestCase):
         assert self.repository.get_fingerprint() != self.fingerprint
 
     def assert_status_unchanged(self, function):
-        # Run `function` and check that it left the status as it was, so
-        # that the fingerprint has only the modification times to go by.
+        # So that the fingerprint has only the modification times to go by.
         before = self.repository._git("status", "--porcelain")
         function()
         assert self.repository._git("status", "--porcelain") == before
 
     def test_nothing_changed(self):
-        # A fingerprint that changed on its own would have the window
-        # reload on every poll, for as long as it is open.
         assert self.repository.get_fingerprint() == self.fingerprint
 
     def test_tracked_file_edited(self):
-        # A file that is already modified stays modified, so nothing of
-        # the status says that it was edited again.
         path = self.root / "modified.txt"
         self.assert_status_unchanged(lambda: path.write_text("a\nB\nc\nd\nE"))
         self.assert_changed()
@@ -457,9 +436,7 @@ class TestGetFingerprint(slop.test.TestCase):
         self.assert_changed()
 
     def test_renamed_file_edited(self):
-        # The record of a rename carries the old path as one more field,
-        # past which the walk needs to find the new path, that being the
-        # one that exists to have a modification time.
+        # The record of a rename has the old path as one more field.
         self.assert_status_unchanged((self.root / "renamed-to.txt").touch)
         self.assert_changed()
 
@@ -468,10 +445,8 @@ class TestGetFingerprint(slop.test.TestCase):
         self.assert_changed()
 
     def test_file_edited_in_an_untracked_directory(self):
-        # An untracked directory is reported as the directory alone
-        # unless all the untracked files are asked for by name. Editing
-        # a file leaves the modification time of its directory alone,
-        # so the directory is no substitute for the files in it.
+        # By default git lists only the directory, whose modification
+        # time an edit of a file in it doesn't change.
         (self.root / "sub").mkdir()
         path = self.root / "sub" / "a.txt"
         path.write_text("a\n")
@@ -498,15 +473,10 @@ class TestGetFingerprint(slop.test.TestCase):
         self.assert_changed()
 
     def test_branch_switched(self):
-        # Nothing about the files changes, only the branch they are on,
-        # which is what the status header is included for.
         self.repository._git("checkout", "--quiet", "-b", "other")
         self.assert_changed()
 
     def test_ignored_file(self):
-        # Ignored files are not listed and thus not watched either,
-        # without which build output alone would keep the window
-        # reloading.
         (self.root / ".gitignore").write_text("*.log\n")
         self.repository._git("add", "--", ".gitignore")
         self.fingerprint = self.repository.get_fingerprint()

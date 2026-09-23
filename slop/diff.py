@@ -82,6 +82,8 @@ class DiffView(GtkSource.View):
         self._init_properties()
         self._init_gutter()
         self._init_tags()
+        buffer = self.get_buffer()
+        self._top = buffer.create_mark(None, buffer.get_start_iter(), True)
 
     def _init_gutter(self):
         gutter = self.get_gutter(Gtk.TextWindowType.LEFT)
@@ -236,8 +238,11 @@ class DiffView(GtkSource.View):
                          for x in lines)
         if keep_position and text == buffer.get_text(*buffer.get_bounds(), True):
             return
-        top = (self.get_line_at_y(self.get_visible_rect().y)[0].get_line()
-               if keep_position else 0)
+        top, cursor = 0, (0, 0)
+        if keep_position:
+            top = self.get_line_at_y(self.get_visible_rect().y)[0].get_line()
+            insert = buffer.get_iter_at_mark(buffer.get_insert())
+            cursor = insert.get_line(), insert.get_line_offset()
         # Set first, so that the text is not highlighted twice.
         self._set_language(path)
         buffer.set_text(text)
@@ -248,8 +253,9 @@ class DiffView(GtkSource.View):
         self._refine(lines)
         for gutter in (self._old_gutter, self._new_gutter):
             gutter.set_lines(lines)
-        buffer.place_cursor(buffer.get_iter_at_line(
-            min(top, buffer.get_line_count() - 1))[1])
+        # Past the end, these give the end of the line or the buffer.
+        buffer.place_cursor(buffer.get_iter_at_line_offset(*cursor)[1])
+        buffer.move_mark(self._top, buffer.get_iter_at_line(top)[1])
         # Line heights are only computed once idle, so scrolling by iter
         # would be off. Scrolling to a mark defers until they are known.
-        self.scroll_to_mark(buffer.get_insert(), 0, True, 0, 0)
+        self.scroll_to_mark(self._top, 0, True, 0, 0)

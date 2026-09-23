@@ -203,6 +203,8 @@ class FileSidebar(Gtk.Box):
     def set_changes(self, changes):
         """Show `changes`, keeping the selected file selected if still there."""
         selected = self.get_selected_change()
+        adjustment = self._scroller.get_vadjustment()
+        value = adjustment.get_value()
         # Splicing drops the selection before it is restored below, which
         # would otherwise reload the diff view twice.
         with GObject.signal_handler_block(self._selection, self._selection_handler):
@@ -213,6 +215,17 @@ class FileSidebar(Gtk.Box):
             self._scroller.set_visible(not empty)
             self._placeholder.set_visible(empty)
             self.select_change(selected)
+        # Splicing also moves keyboard focus to the first file and scrolls
+        # there. Undo that once the new rows are laid out, but before they
+        # are painted, as they'd be off the mark before and flicker after.
+        if (clock := self.get_frame_clock()) is not None:
+            def restore(clock):
+                clock.disconnect(handler)
+                adjustment.set_value(value)
+                position = self._selection.get_selected()
+                if position != Gtk.INVALID_LIST_POSITION:
+                    self._list_view.scroll_to(position, Gtk.ListScrollFlags.FOCUS, None)
+            handler = clock.connect("layout", restore)
         self.emit("change-selected", self.get_selected_change(), False)
 
     def select_change(self, change):

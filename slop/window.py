@@ -44,6 +44,7 @@ class Window(Gtk.ApplicationWindow):
         self._tasks = []
         self._title_box = None
         self._title_label = None
+        self._trashing = set()
         self._init_properties()
         self.load_css()
         self._init_actions()
@@ -88,6 +89,7 @@ class Window(Gtk.ApplicationWindow):
             repository = slop.Repository(path)
         except Exception as error:
             return util.show_error(self, f"Failed to open {path}", error)
+        if repository.root in self._trashing: return
         for task in self._tasks:
             if task.repository.root == repository.root:
                 return self._show_task(task)
@@ -126,20 +128,32 @@ class Window(Gtk.ApplicationWindow):
         """Ask before moving the subtask at `path` to the trash."""
         if util.confirm(self, f"Move {path.name} to the trash?",
                         "The subtask and the work on its branch can only "
-                        "be had back from the trash.",
+                        "be had back from the trash. Anything deleted by the "
+                        "teardown command cannot be restored.",
                         "Trash", destructive=True):
             self.trash_task(path)
 
     def trash_task(self, path):
         """Move the subtask at `path` to the trash, closing it first."""
-        self.close_task(path)
+        if path in self._trashing: return
         try:
-            subtask.trash(path)
+            command = slop.Config(slop.Repository(path)).read_item("teardown-command")
         except Exception as error:
             return util.show_error(
                 self, f"Failed to trash {path.name}", error)
-        recent.remove_repository(path)
+
+        def on_trashed(path, error):
+            self._trashing.remove(path)
+            if error is None:
+                recent.remove_repository(path)
+            self._update_dashboard()
+            if error is not None:
+                util.show_error(self, f"Failed to trash {path.name}", error)
+
+        self._trashing.add(path)
+        self.close_task(path)
         self._update_dashboard()
+        subtask.trash(path, command, on_trashed)
 
     def close_task(self, path):
         """Close the task for the repository at `path`."""
@@ -160,7 +174,7 @@ class Window(Gtk.ApplicationWindow):
             return
 
     def _update_dashboard(self):
-        self._dashboard.set_tasks(self._tasks)
+        self._dashboard.set_tasks(self._tasks, self._trashing)
 
     def _show_task(self, task):
         self._stack.set_visible_child(task)

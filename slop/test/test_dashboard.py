@@ -18,13 +18,15 @@
 import json
 import shutil
 import slop.dashboard
-import slop.subtask
 import slop.test
 import time
 
 from contextlib import contextmanager
+from gi.repository import Gio
+from gi.repository import GLib
 from pathlib import Path
 from slop import recent
+from unittest.mock import patch
 
 class TestDashboard(slop.test.TestCase):
 
@@ -163,17 +165,69 @@ class TestDashboard(slop.test.TestCase):
         assert path in recent.list_repositories()
         assert [x.path for x in self._get_group(0)] == [self.root, path]
 
+    def test_teardown_runs_in_the_subtask_before_trashing(self):
+        path = self._record_subtask(self.root)
+        (path / "venv").mkdir()
+        (path / "venv" / "dependency").touch()
+        slop.Config(slop.Repository(path)).write_item(
+            "teardown-command", "rm -rf venv")
+        self.window.open_task(path)
+        def move(path):
+            assert not self.window._tasks
+            assert not (path / "venv").exists()
+            assert (path / ".git").is_dir()
+            shutil.rmtree(path)
+        with self._trash_to(move) as trashed:
+            self.window.trash_task(path)
+            self._wait_for_trash(path)
+        assert trashed == [str(path)]
+        assert path not in recent.list_repositories()
+
+    def test_failed_teardown_keeps_the_subtask_and_shows_output(self):
+        path = self._record_subtask(self.root)
+        slop.Config(slop.Repository(path)).write_item(
+            "teardown-command", "echo cleanup-failed >&2; exit 1")
+        with self._trash_to(shutil.rmtree) as trashed, \
+                patch("slop.util.show_error") as show_error:
+            self.window.trash_task(path)
+            self._wait_for_trash(path)
+        assert not trashed
+        assert path.exists()
+        assert path in recent.list_repositories()
+        assert "cleanup-failed" in str(show_error.call_args.args[2])
+        assert self._get_row(1).get_sensitive()
+
+    def test_teardown_cannot_be_started_twice_or_reopened(self):
+        path = self._record_subtask(self.root)
+        slop.Config(slop.Repository(path)).write_item("teardown-command", "true")
+        with self._trash_to(shutil.rmtree) as trashed:
+            self.window.trash_task(path)
+            assert path in self.window._trashing
+            assert not self._get_row(1).get_sensitive()
+            self.window.trash_task(path)
+            self.window.open_task(path)
+            assert not self.window._tasks
+            self._wait_for_trash(path)
+        assert trashed == [str(path)]
+
+    def _wait_for_trash(self, path):
+        deadline = time.monotonic() + 5
+        while path in self.window._trashing:
+            assert time.monotonic() < deadline
+            GLib.MainContext.default().iteration(False)
+            time.sleep(0.001)
+
     @contextmanager
     def _trash_to(self, action):
-        """Run the body with subtask.trash replaced by `action`."""
+        """Run the body with Gio.File.trash replaced by `action`."""
         # GLib refuses to trash from /tmp, a system internal mount.
         trashed = []
-        original = slop.subtask.trash
-        slop.subtask.trash = lambda path: (trashed.append(str(path)), action(path))
-        try:
+        def trash(file, cancellable):
+            path = file.get_path()
+            trashed.append(path)
+            action(Path(path))
+        with patch.object(Gio.File, "trash", trash):
             yield trashed
-        finally:
-            slop.subtask.trash = original
 
     def _record_subtask(self, parent):
         """Record a scratch repository as a subtask forked from `parent`."""

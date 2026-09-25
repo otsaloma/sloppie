@@ -22,6 +22,7 @@ from slop import util
 DEFAULTS = {
     "run-command": None,
     "setup-command": None,
+    "teardown-command": None,
     "wrap-lines": True,
 }
 

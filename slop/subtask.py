@@ -113,11 +113,38 @@ def _finish(repository, partial, directory):
     link.symlink_to(shared, target_is_directory=True)
     partial.rename(directory)
 
-def trash(directory):
-    """Move the subtask at `directory` to the trash."""
-    # A rename, so .git/sloppie goes as a symlink, leaving the shared
-    # state be. Not supported on system internal mounts such as /tmp.
-    Gio.File.new_for_path(str(directory)).trash(None)
+def trash(directory, command, callback):
+    """Run teardown, trash `directory`, then call `callback(directory, error)`."""
+    def move_to_trash():
+        try:
+            # A rename, so .git/sloppie goes as a symlink, leaving the
+            # shared state be. Not supported on internal mounts like /tmp.
+            Gio.File.new_for_path(str(directory)).trash(None)
+        except Exception as error:
+            return callback(directory, error)
+        callback(directory, None)
+
+    def on_torn_down(process, result):
+        try:
+            ok, stdout, stderr = process.communicate_utf8_finish(result)
+            if not process.get_successful():
+                detail = stdout.strip()
+                raise RuntimeError("Teardown command failed" +
+                                   (f":\n{detail}" if detail else ""))
+        except Exception as error:
+            return callback(directory, error)
+        move_to_trash()
+
+    if not command:
+        return move_to_trash()
+    try:
+        launcher = Gio.SubprocessLauncher(
+            flags=Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
+        launcher.set_cwd(str(directory))
+        process = launcher.spawnv(["/bin/sh", "-c", command])
+    except Exception as error:
+        return callback(directory, error)
+    process.communicate_utf8_async(None, None, on_torn_down)
 
 def get_setup_command(branch, command=None):
     """Return the shell commands that make the copy a subtask of `branch`."""

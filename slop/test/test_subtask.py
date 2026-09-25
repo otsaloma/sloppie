@@ -98,6 +98,25 @@ class TestSubtask(slop.test.TestCase):
         assert command.rstrip().endswith("{ set +x; } 2>/dev/null")
         assert command.index("tools/setup.sh") > command.index("direnv allow")
 
+    def test_teardown_that_cannot_start_does_not_trash(self):
+        directory = self.repository.root / "missing"
+        result = []
+        subtask.trash(directory, "true", lambda path, error: result.append(error))
+        assert len(result) == 1
+        assert result[0] is not None
+
+    def test_teardown_failure_without_output_is_reported(self):
+        loop = GLib.MainLoop()
+        result = []
+        def on_trashed(path, error):
+            result.append(error)
+            loop.quit()
+        subtask.trash(self.repository.root, "exit 1", on_trashed)
+        if not result:
+            loop.run()
+        assert str(result[0]) == "Teardown command failed"
+        assert self.repository.root.exists()
+
     def _fork(self, branch, expect_error=False):
         """Fork `branch` and return where it went, waiting for the copy."""
         # The copy reports back through the main loop.

@@ -395,6 +395,7 @@ class Dashboard(Gtk.Box):
         self._pull_requests = {}
         self._pull_requests_asked = {}
         self._tasks = []
+        self._trashing = set()
         self._init_widgets()
         self._init_shortcuts()
         # Asked on turning to the dashboard, not polled.
@@ -455,9 +456,10 @@ class Dashboard(Gtk.Box):
             return
         self.emit("open-task", Path(file.get_path()))
 
-    def set_tasks(self, tasks):
-        """Rebuild the cards for `tasks` and the repositories recently opened."""
+    def set_tasks(self, tasks, trashing=()):
+        """Rebuild the cards, disabling repositories being trashed."""
         self._tasks = list(tasks)
+        self._trashing = set(trashing)
         self._rebuild()
 
     def add_pending(self, path, parent, branch):
@@ -490,6 +492,8 @@ class Dashboard(Gtk.Box):
             members = sorted(groups[path],
                              key=lambda x: (x != path, x.name.casefold()))
             rows = [TaskRow(x, open_tasks.get(x), parents.get(x)) for x in members]
+            for row in rows:
+                row.set_sensitive(row.path not in self._trashing)
             rows += [PendingRow(x, branch) for x, (parent, branch)
                      in self._pending.items() if parent == path]
             group = TaskGroup(rows, tag_group, path)

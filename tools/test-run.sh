@@ -23,4 +23,4 @@ trap cleanup 0
 cleanup
 "$ROOT/tools/fixture-clone.sh" "$TEST"
 echo "Launching against $TEST"
-"$ROOT/bin/sloppie" "$TEST"
+"$ROOT/bin/sloppie" --new-instance "$TEST"

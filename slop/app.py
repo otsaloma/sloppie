@@ -40,6 +40,8 @@ class Application(Gtk.Application):
             # argparse exits for help, version and errors;
             # let GApplication exit.
             return True, arguments, error.code
+        if args.new_instance:
+            self.set_flags(self.get_flags() | Gio.ApplicationFlags.NON_UNIQUE)
         forwarded = [arguments[0]]
         if args.path is not None:
             try:
@@ -67,6 +69,10 @@ class Application(Gtk.Application):
                             nargs="?",
                             default=None,
                             help="path of the git repository")
+
+        parser.add_argument("--new-instance",
+                            action="store_true",
+                            help="don't reuse an already running instance")
 
         parser.add_argument("--version",
                             action="version",

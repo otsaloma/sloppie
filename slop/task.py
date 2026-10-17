@@ -377,7 +377,7 @@ class TaskPage(Gtk.Overlay):
             # The previous alert's timeout must not cut this one short.
             GLib.source_remove(self._withdraw_sources.pop(index))
         self._withdraw_sources[index] = GLib.timeout_add_seconds(
-            3, self._on_withdraw_timeout, application, notification_id, index)
+            5, self._on_withdraw_timeout, application, notification_id, index)
 
     def _on_withdraw_timeout(self, application, notification_id, index):
         application.withdraw_notification(notification_id)

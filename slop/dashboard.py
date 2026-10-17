@@ -61,7 +61,7 @@ class TaskRow(Gtk.ListBoxRow):
             # With one row only, the padding of the buttons suffices.
             grid.set_margin_bottom(9)
             grid.set_margin_top(9)
-        self._title = Gtk.Label(label=self._get_title(), xalign=0)
+        self._title = Gtk.Label(xalign=0, mnemonic_widget=self)
         self._title.add_css_class("slop-task-name")
         grid.attach(self._title, 0, 0, 1, 1)
         directory = Gtk.Label(label=self._get_directory(), xalign=1, hexpand=True)
@@ -172,10 +172,21 @@ class TaskRow(Gtk.ListBoxRow):
         if branch is None: return self.path.name
         return f"{self.path.name}\u2009/\u2009{branch}"
 
+    def set_title(self, taken):
+        """Show the title, the first of its characters not `taken` a mnemonic."""
+        title = self._get_title()
+        i = next((i for i, x in enumerate(title)
+                  if x.isalnum() and x.lower() not in taken), None)
+
+        if i is not None:
+            taken.add(title[i].lower())
+        self._title.set_text_with_mnemonic("".join(
+            f"_{x}" if j == i else x.replace("_", "__")
+            for j, x in enumerate(title)))
+
     def update(self):
         """Update the card to match the state of the task."""
         if self.task is None: return
-        self._title.set_label(self._get_title())
         running = " ".join(x for x in (self.task.command, self.task.elapsed) if x)
         self._running.set_label(running or NOTHING)
         status = f"slop-task-{self.task.status}" if running else "slop-task-none"
@@ -397,7 +408,6 @@ class Dashboard(Gtk.Box):
         self._tasks = []
         self._trashing = set()
         self._init_widgets()
-        self._init_shortcuts()
         # Asked on turning to the dashboard, not polled.
         self.connect("map", lambda *args: self.refresh_pull_requests())
 
@@ -421,25 +431,14 @@ class Dashboard(Gtk.Box):
         scroller.set_child(self._box)
         self.append(scroller)
 
-    def _init_shortcuts(self):
-        # Not mnemonics, which would need a number printed by every name.
-        # The managed scope hands these to the window, so that they work
-        # wherever the focus is, but only while the dashboard is mapped.
-        shortcuts = Gtk.ShortcutController(scope=Gtk.ShortcutScope.MANAGED)
-        for i in range(1, 10):
-            shortcuts.add_shortcut(Gtk.Shortcut(
-                trigger=Gtk.ShortcutTrigger.parse_string(f"<Alt>{i}"),
-                action=Gtk.CallbackAction.new(
-                    lambda widget, args, i=i: self.activate_row(i))))
-        self.add_controller(shortcuts)
-
-    def activate_row(self, number):
-        """Activate the `number`th row, as though clicked."""
-        rows = [row for group in self._box for row in group.get_rows()
-                if isinstance(row, TaskRow)]
-
-        if number > len(rows): return False
-        return rows[number-1].activate()
+    def _set_titles(self):
+        # In the order shown, so that each name tends to keep its letter.
+        # The "o" is that of the Open Repository button.
+        taken = {"o"}
+        for group in self._box:
+            for row in group.get_rows():
+                if isinstance(row, TaskRow):
+                    row.set_title(taken)
 
     def _on_open_clicked(self, button):
         dialog = Gtk.FileDialog(modal=True, title="Open Repository")
@@ -499,6 +498,7 @@ class Dashboard(Gtk.Box):
             group = TaskGroup(rows, tag_group, path)
             group.set_pull_requests(self._pull_requests.get(path, {}))
             self._box.append(group)
+        self._set_titles()
         if self.get_mapped():
             self.refresh_pull_requests()
 
@@ -546,6 +546,8 @@ class Dashboard(Gtk.Box):
         # In place, as a rebuild would lose hover and focus.
         for group in self._box:
             group.update()
+        # A branch switched changes the title.
+        self._set_titles()
 
     def focus(self):
         if (group := self._box.get_first_child()) is not None:

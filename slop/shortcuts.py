@@ -38,7 +38,7 @@ class ShortcutsWindow(Gtk.ShortcutsWindow):
         section = Gtk.ShortcutsSection(max_height=17, title="Shortcuts")
         for title, shortcuts in (
                 ("Dashboard", (
-                    ("<Alt>1...9", "Open Task"),
+                    ("<Alt>a...z", "Open Task"),
                 )),
                 ("Files", (
                     ("<Control>e", "Edit File"),

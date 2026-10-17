@@ -324,7 +324,7 @@ class Terminal(Vte.Terminal):
                 text = None
             if text is None:
                 return self.paste_clipboard()
-            if "\n" in text:
+            if "\n" in text and not self.is_agent_running():
                 message = ("The clipboard text has line breaks in it. "
                            "Pasting sends it as if typed, and the shell "
                            "may run each line as a command.")

@@ -17,11 +17,12 @@ on the focused terminal and forwards them to the shell, which stops
 propagation before the window's shortcuts get a turn. We therefore add
 the window's shortcut controllers in the capture phase, where they run
 before the terminal sees anything, meaning the shell never gets those
-keys. Copy and paste are the exception: being terminal actions, they are
-shortcuts on the terminal itself, in the capture phase too, VTE's own
-key controller being in the bubble phase. When adding a keybinding,
-always consider what it does in the shell; in readline and in the tty
-line discipline (`stty -a`); and avoid taking over anything important.
+keys. Copy, paste and Shift+Enter are the exception: being terminal
+actions, they are shortcuts on the terminal itself, in the capture phase
+too, VTE's own key controller being in the bubble phase. When adding a
+keybinding, always consider what it does in the shell; in readline and
+in the tty line discipline (`stty -a`); and avoid taking over anything
+important.
 Document what you do take below.
 
 | Keys          | Sloppie      | Shell action disabled                           |
@@ -38,6 +39,7 @@ Document what you do take below.
 | Shift+Ctrl+C  | Copy         | tty ^C: interrupt, plain Ctrl+C unharmed        |
 | Shift+Ctrl+R  | Resume agent | readline reverse-search, plain Ctrl+R unharmed  |
 | Shift+Ctrl+V  | Paste        | readline quoted-insert, plain Ctrl+V unharmed   |
+| Shift+Enter   | Ctrl+J       | nothing: both run the line, as a plain Enter    |
 | F4            | Dashboard    | nothing in readline or tty; TUI apps lose F4    |
 | F5            | Run command  | nothing in readline or tty; TUI apps lose F5    |
 | Shift+F5      | Set command  | same as F5: nothing in readline or tty          |

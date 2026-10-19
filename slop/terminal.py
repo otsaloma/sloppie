@@ -308,7 +308,16 @@ class Terminal(Vte.Terminal):
         shortcuts.add_shortcut(Gtk.Shortcut(
             trigger=Gtk.ShortcutTrigger.parse_string("<Control><Shift>v"),
             action=Gtk.CallbackAction.new(self._on_paste)))
+        # VTE sends Shift+Enter as a plain Enter. A Ctrl+J instead makes
+        # it a newline in agents and still runs the line in the shell.
+        shortcuts.add_shortcut(Gtk.Shortcut(
+            trigger=Gtk.ShortcutTrigger.parse_string("<Shift>Return"),
+            action=Gtk.CallbackAction.new(self._on_newline)))
         self.add_controller(shortcuts)
+
+    def _on_newline(self, terminal, args):
+        self.feed_child(b"\n")
+        return True
 
     def _on_copy(self, terminal, args):
         if self.get_has_selection():

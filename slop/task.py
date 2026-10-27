@@ -50,10 +50,9 @@ class TaskLayout(Gtk.OverlayLayout):
     def do_allocate(self, task, width, height, baseline):
         sidebar = round(width / 6)
         task._paned.set_position(sidebar)
-        Gtk.OverlayLayout.do_allocate(self, task, width, height, baseline)
-        # The right paned shifts its position by the change in its width,
-        # so set it only once allocated. Minus the two 1 px handles.
+        # Minus the two 1 px handles.
         task._right_paned.set_position(width - 2 * sidebar - 2)
+        Gtk.OverlayLayout.do_allocate(self, task, width, height, baseline)
 
 class TaskPage(Gtk.Overlay):
 
@@ -120,11 +119,14 @@ class TaskPage(Gtk.Overlay):
             terminal.connect("copied",
                              lambda *args: self._toast.flash("Copied to the clipboard"))
         self._right_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        # Resizing the start child only, GtkPaned would shift the position
+        # TaskLayout sets by the change in width, and the corrected position
+        # would allocate the terminals again, sending two sizes to the agent.
         self._right_paned.set_start_child(self.stack)
-        self._right_paned.set_resize_start_child(True)
+        self._right_paned.set_resize_start_child(False)
         self._right_paned.set_shrink_start_child(False)
         self._right_paned.set_end_child(self._comment_sidebar)
-        self._right_paned.set_resize_end_child(False)
+        self._right_paned.set_resize_end_child(True)
         self._right_paned.set_shrink_end_child(False)
         self._paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self._paned.set_start_child(self._file_sidebar)

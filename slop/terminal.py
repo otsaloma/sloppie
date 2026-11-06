@@ -37,7 +37,7 @@ UUID = r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}"
 
 RESUME_COMMANDS = {
     "agy": rf"agy --conversation={UUID}",
-    "claude": rf"claude --resume {UUID}",
+    "claude": rf"claude(?: -[\w=.-]+)* --resume {UUID}",
     "codex": rf"codex resume {UUID}",
     "pi": rf"pi --session {UUID}",
 }

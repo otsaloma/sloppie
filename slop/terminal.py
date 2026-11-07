@@ -295,7 +295,9 @@ class Terminal(Vte.Terminal):
         text, length = self.get_text_range_format(
             Vte.Format.TEXT, max(0, row - 50), 0, row, -1)
         if matches := re.findall(RESUME_COMMANDS[command], text):
-            recent.set_resume_command(self._directory, matches[-1])
+            # A wrapper adding flags would add them again on each resume.
+            command = " ".join(dict.fromkeys(matches[-1].split()))
+            recent.set_resume_command(self._directory, command)
 
     def _init_shortcuts(self):
         # VTE has no clipboard keybindings. Capture phase to beat VTE's

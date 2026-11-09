@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import pytest
 import slop.test
 
 from slop.git import FileChange
@@ -342,20 +343,13 @@ class TestRepository(slop.test.TestCase):
 
     def test_commit_nothing_staged(self):
         self.repository.commit("Add a thing")
-        try:
+        # Explained by git on stdout, stderr being empty.
+        with pytest.raises(RuntimeError, match="no changes added to commit"):
             self.repository.commit("Add a thing again")
-        except RuntimeError as error:
-            # Explained by git on stdout, stderr being empty.
-            assert "no changes added to commit" in str(error)
-            return
-        raise AssertionError("expected RuntimeError")
 
     def test_not_a_repository(self):
-        try:
+        with pytest.raises(RuntimeError):
             slop.Repository("/")
-        except RuntimeError:
-            return
-        raise AssertionError("expected RuntimeError")
 
 class TestConflict(slop.test.TestCase):
 
@@ -399,12 +393,8 @@ class TestConflict(slop.test.TestCase):
             self.root / "conflict.txt").read_text().rstrip("\n").split("\n")
 
     def test_commit_is_refused(self):
-        try:
+        with pytest.raises(RuntimeError, match="unmerged files"):
             self.repository.commit("Merge other")
-        except RuntimeError as error:
-            assert "unmerged files" in str(error)
-            return
-        raise AssertionError("expected RuntimeError")
 
 class TestGetFingerprint(slop.test.TestCase):
 

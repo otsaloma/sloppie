@@ -31,7 +31,7 @@ class CommitDialog(Gtk.Window):
     }
 
     def __init__(self, parent, repository):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.repository = repository
         self._amend = Gtk.Switch()
         self._button = Gtk.Button(label="C_ommit", use_underline=True)

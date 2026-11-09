@@ -20,13 +20,12 @@ import sys
 
 from argparse import ArgumentParser
 from gi.repository import Gio
-from gi.repository import GObject
 from gi.repository import Gtk
 
 class Application(Gtk.Application):
 
     def __init__(self):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self._window = None
         self.set_application_id("io.otsaloma.sloppie")
         self.set_flags(Gio.ApplicationFlags.HANDLES_OPEN)

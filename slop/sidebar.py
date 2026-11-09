@@ -38,7 +38,7 @@ class FileSidebar(Gtk.Box):
     }
 
     def __init__(self):
-        GObject.GObject.__init__(self, orientation=Gtk.Orientation.VERTICAL)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
         # One store per section: GtkFlattenListModel makes each of the
         # models it flattens a section, which GtkListView then gives a
         # header. Empty sections contribute no items and no header.

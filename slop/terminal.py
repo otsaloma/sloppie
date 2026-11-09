@@ -70,7 +70,7 @@ class Terminal(Vte.Terminal):
     }
 
     def __init__(self, directory, setup=None):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self._directory = directory
         # Shell commands to run once, before the first prompt.
         self._setup = setup

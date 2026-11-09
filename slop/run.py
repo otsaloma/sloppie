@@ -27,7 +27,7 @@ class RunDialog(Gtk.Window):
     }
 
     def __init__(self, parent, config):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.config = config
         self._button = Gtk.Button(label="_Save", use_underline=True)
         self._view = Gtk.TextView()

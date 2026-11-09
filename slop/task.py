@@ -64,7 +64,7 @@ class TaskPage(Gtk.Overlay):
     }
 
     def __init__(self, repository, setup=None):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.repository = repository
         self.branch = None
         self.config = slop.Config(repository)

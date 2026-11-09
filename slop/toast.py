@@ -16,7 +16,6 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 from gi.repository import GLib
-from gi.repository import GObject
 from gi.repository import Gtk
 
 class Toast(Gtk.Box):
@@ -24,7 +23,7 @@ class Toast(Gtk.Box):
     """Transient notification overlaid on the window content."""
 
     def __init__(self):
-        GObject.GObject.__init__(self, orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         self.add_css_class("slop-toast")
         self.set_halign(Gtk.Align.CENTER)
         self.set_valign(Gtk.Align.END)

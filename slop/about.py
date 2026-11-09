@@ -17,13 +17,12 @@
 
 import slop
 
-from gi.repository import GObject
 from gi.repository import Gtk
 
 class AboutDialog(Gtk.AboutDialog):
 
     def __init__(self, parent):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.set_authors(("Osmo Salomaa <otsaloma@iki.fi>",))
         self.set_comments("A development environment for the modern era")
         self.set_copyright("Copyright © 2026 Osmo Salomaa")

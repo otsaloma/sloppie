@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-from gi.repository import GObject
 from gi.repository import Gtk
 
 class ShortcutsWindow(Gtk.ShortcutsWindow):
@@ -26,7 +25,7 @@ class ShortcutsWindow(Gtk.ShortcutsWindow):
     # replacement being AdwShortcutsDialog, which we don't have.
 
     def __init__(self, parent):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.set_modal(True)
         self.set_title("Keyboard Shortcuts")
         self.set_transient_for(parent)

@@ -20,7 +20,6 @@ import re
 import slop
 
 from gi.repository import Gio
-from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import GtkSource
 from gi.repository import Pango
@@ -49,7 +48,7 @@ class LineNumberGutter(GtkSource.GutterRendererText):
     """Gutter column showing either the old or the new line numbers."""
 
     def __init__(self, attribute):
-        GObject.GObject.__init__(self)
+        super().__init__()
         # "old" or "new" of slop.DiffLine.
         self.attribute = attribute
         self.lines = []
@@ -75,7 +74,7 @@ class DiffView(GtkSource.View):
     """Unified diff of a single file."""
 
     def __init__(self):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self._lines = []
         self._old_gutter = LineNumberGutter("old")
         self._new_gutter = LineNumberGutter("new")

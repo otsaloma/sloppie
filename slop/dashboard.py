@@ -34,7 +34,7 @@ class TaskRow(Gtk.ListBoxRow):
     """One repository in the dashboard, open as a task or only recent."""
 
     def __init__(self, path, task, parent=None):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.path = path
         self.task = task
         # The repository forked from, set only for a subtask.
@@ -250,7 +250,7 @@ class SubtaskPopover(Gtk.Popover):
     }
 
     def __init__(self, path):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.path = path
         self._entry = None
         self._error = None
@@ -297,7 +297,7 @@ class PendingRow(Gtk.ListBoxRow):
     """A subtask being copied, which is not yet a task to be opened."""
 
     def __init__(self, path, branch):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.path = path
         # Empty, but packed by TaskGroup beside every row.
         self.tag = Gtk.Box()
@@ -324,10 +324,7 @@ class TaskGroup(Gtk.Box):
     """One repository and the subtasks forked from it, as rows of one frame."""
 
     def __init__(self, rows, tag_group, root):
-        GObject.GObject.__init__(self,
-                                 orientation=Gtk.Orientation.HORIZONTAL,
-                                 spacing=9)
-
+        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
         self.root = root
         # As wide as the column of tags on the other side, so that the
         # frames stay centered in the window.
@@ -393,10 +390,7 @@ class Dashboard(Gtk.Box):
     }
 
     def __init__(self):
-        GObject.GObject.__init__(self,
-                                 orientation=Gtk.Orientation.VERTICAL,
-                                 spacing=24)
-
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=24)
         self._box = None
         self._open_button = None
         # Parent and branch of subtasks being copied, by the directory

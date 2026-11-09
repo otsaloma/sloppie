@@ -44,7 +44,7 @@ class FileChange(GObject.Object):
     """One file changed in one section, as listed in the sidebar."""
 
     def __init__(self, section, path, status, old_path, added, removed):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.section = section
         self.path = path
         # Single letter as given by git: A, M, D, R, C, T, U.

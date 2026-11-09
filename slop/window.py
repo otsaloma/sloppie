@@ -23,7 +23,6 @@ from slop import util
 from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GLib
-from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
 
@@ -32,7 +31,7 @@ class Window(Gtk.ApplicationWindow):
     """The shell around the tasks: a header bar and the task shown."""
 
     def __init__(self, repository=None):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self._attention_dot = None
         self._branch_label = None
         self._dashboard = None

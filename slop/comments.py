@@ -101,7 +101,7 @@ class CommentDialog(Gtk.Window):
     def __init__(self, parent, branch, current,
                  text="", path=None, hunk=None, sent=False):
 
-        GObject.GObject.__init__(self)
+        super().__init__()
         self._branch = branch
         # Text given means an existing comment being edited.
         self._text = text
@@ -258,7 +258,7 @@ class CommentSidebar(Gtk.Box):
     """Review comments on the changes, kept until an agent handles them."""
 
     def __init__(self, repository):
-        GObject.GObject.__init__(self, orientation=Gtk.Orientation.VERTICAL)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.repository = repository
         self._branch = None
         self._box = None

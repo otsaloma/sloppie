@@ -56,10 +56,9 @@ of installing and using it directly, you'd likely want to clone the
 repository, ask a coding agent to customize the font, colors, editor
 etc. to your preferences and use that clone instead.
 
-Sloppie requires Git, Python ≥3.10, PyGObject ≥3.42, GTK 4.x,
-GtkSourceView 5.x and VTE ≥0.76. libadwaita ≥1.5 is optional. On
-Debian/Ubuntu you can install the dependencies with the following
-command.
+Sloppie requires Git, Python ≥3.10, PyGObject ≥3.42, GTK ≥4.16,
+GtkSourceView 5.x, VTE ≥0.76 and libadwaita ≥1.6. On Debian/Ubuntu you
+can install the dependencies with the following command.
 
     sudo apt install gir1.2-adw-1 \
                      gir1.2-gtk-4.0 \

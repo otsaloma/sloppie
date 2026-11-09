@@ -19,6 +19,7 @@ __version__ = "0.1"
 
 import gi
 
+gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
 gi.require_version("Gio", "2.0")
 gi.require_version("GObject", "2.0")
@@ -28,7 +29,11 @@ gi.require_version("GtkSource", "5")
 gi.require_version("Pango", "1.0")
 gi.require_version("Vte", "3.91")
 
+from gi.repository import Adw
 from pathlib import Path
+
+Adw.init()
+Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
 
 # Default to the source directory, overwritten when installing.
 DATA_DIR = Path(__file__).parent.parent.joinpath("data").resolve()

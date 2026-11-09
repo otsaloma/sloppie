@@ -15,58 +15,38 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import gi
 import json
 import sys
 
+from gi.repository import Adw
 from gi.repository import GLib
 from gi.repository import Gtk
 from gi.repository import Pango
-
-try:
-    # Adw is used only in this module.
-    gi.require_version("Adw", "1")
-    from gi.repository import Adw
-    Adw.init()
-    Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
-except (ImportError, ValueError):
-    Adw = None
 
 # The error dialog currently shown, if any.
 error_dialog = None
 
 def confirm(parent, message, detail, label, destructive=False):
     """Return ``True`` if the user chooses `label`."""
-    # Both AlertDialogs are asynchronous only, hence the nested main
-    # loop. Both are told which response cancels, so that dismissing
-    # gives that instead of an error.
+    # AlertDialog is asynchronous only, hence the nested main loop. It
+    # is told which response cancels, so that dismissing gives that
+    # instead of an error.
     loop = GLib.MainLoop()
     response = None
     def on_done(dialog, result):
         nonlocal response
         response = dialog.choose_finish(result)
         loop.quit()
-    if Adw is not None:
-        dialog = Adw.AlertDialog(heading=message, body=detail)
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("confirm", label)
-        if destructive:
-            dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
-        dialog.set_close_response("cancel")
-        dialog.set_default_response("cancel")
-        dialog.choose(parent, None, on_done)
-        loop.run()
-        return response == "confirm"
-    dialog = Gtk.AlertDialog(modal=True,
-                             message=message,
-                             detail=detail,
-                             buttons=["Cancel", label],
-                             cancel_button=0,
-                             default_button=0)
-
+    dialog = Adw.AlertDialog(heading=message, body=detail)
+    dialog.add_response("cancel", "Cancel")
+    dialog.add_response("confirm", label)
+    if destructive:
+        dialog.set_response_appearance("confirm", Adw.ResponseAppearance.DESTRUCTIVE)
+    dialog.set_close_response("cancel")
+    dialog.set_default_response("cancel")
     dialog.choose(parent, None, on_done)
     loop.run()
-    return response == 1
+    return response == "confirm"
 
 def read_json(path, default):
     """Return the contents of the JSON file `path`, or `default`."""

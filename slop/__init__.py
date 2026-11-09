@@ -59,6 +59,4 @@ from slop.window import Window
 from slop.app import Application
 
 def main(args):
-    global app
-    app = Application()
-    raise SystemExit(app.run(["sloppie", *args]))
+    raise SystemExit(Application().run(["sloppie", *args]))

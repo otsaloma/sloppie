@@ -20,9 +20,5 @@ os.environ["GIT_CONFIG_SYSTEM"] = "/dev/null"
 os.environ["GTK_IM_MODULE"] = "gtk-im-context-simple"
 
 def pytest_configure(config):
-    # Silence the shitload of warnings about GTK deprecations.
-    # We'll probably clear these only once bumping the major GTK version.
-    config.addinivalue_line("filterwarnings", r"ignore:Gtk\..* is deprecated:DeprecationWarning")
-    config.addinivalue_line("filterwarnings", r"ignore::gi.PyGIDeprecationWarning")
     # Silence warnings about PyGObject internal asyncio integration.
     config.addinivalue_line("filterwarnings", r"ignore:'asyncio\..* is deprecated:DeprecationWarning")

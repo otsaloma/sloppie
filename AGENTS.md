@@ -7,8 +7,10 @@ to my preferences, including hard-code things like fonts in code. We
 don't need config files, preferences dialogs, user interface
 translations, none of that. We're targeting only Linux + GNOME + Wayland
 — it's the same system you're running on. Design-wise we want to follow
-GNOME/Adwaita look and feel (but avoid using the Adwaita library for
-things in GTK as well). We don't need to support dark mode.
+GNOME/Adwaita look and feel. libadwaita is required, but only for its
+stylesheet and `Adw.AlertDialog`. For everything else use GTK widgets,
+including deprecated ones such as `Gtk.ShortcutsWindow`. We don't need
+to support dark mode.
 
 ## Keybindings
 
